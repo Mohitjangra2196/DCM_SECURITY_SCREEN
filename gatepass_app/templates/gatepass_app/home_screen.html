@@ -1,0 +1,51 @@
+{% extends 'gatepass_app/base.html' %}
+
+{% block title %}Home{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">Welcome to GatePass System</h1>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card text-center mb-3">
+            <div class="card-body">
+                <h5 class="card-title">Mark Out Employee</h5>
+                <p class="card-text">Record the departure of an employee.</p>
+                <a href="{% url 'mark_out_screen' %}" class="btn btn-primary btn-lg">Mark Out</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card text-center mb-3">
+            <div class="card-body">
+                <h5 class="card-title">Mark In Employee</h5>
+                <p class="card-text">Record the arrival of an employee.</p>
+                <a href="{% url 'mark_in_screen' %}" class="btn btn-primary btn-lg">Mark In</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<hr class="my-4">
+
+<h2 class="mb-4">Security Guard Details</h2>
+<div class="row">
+    {% for guard in security_guards %}
+    <div class="col-md-4 mb-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">{{ guard.first_name }} {{ guard.last_name }} ({{ guard.username }})</h5>
+                <p class="card-text"><strong>Unique Code:</strong> {{ guard.unique_code }}</p>
+                <p class="card-text"><strong>Last Login:</strong> {{ guard.last_login|default:"Never" }}</p>
+                <p class="card-text"><strong>Joined On:</strong> {{ guard.date_joined }}</p>
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="col-12">
+        <p>No security guards registered yet.</p>
+    </div>
+    {% endfor %}
+</div>
+
+{% endblock %}
