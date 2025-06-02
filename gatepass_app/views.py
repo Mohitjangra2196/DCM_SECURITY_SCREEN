@@ -18,41 +18,57 @@ def home_screen(request):
 def mark_out_screen(request):
     employees_to_mark_out = []
     with connection.cursor() as cursor:
+        # Initial query to get gate pass entries awaiting mark out
         cursor.execute("SELECT GATEPASS_NO, NAME, DEPARTMENT, REMARKS, AUTH1_BY, AUTH1_DATE, REQUEST_TIME FROM GATEPASS WHERE FINAL_STATUS = 'A' AND OUT_TIME IS NULL")
         columns = [col[0] for col in cursor.description]
         raw_employees = cursor.fetchall()
 
-    # Fetch employee names for AUTH1_BY codes
     # Store unique AUTH1_BY codes to avoid redundant lookups
-    auth1_by_codes = list(set([row[4] for row in raw_employees if row[4]])) # Index 4 is AUTH1_BY
+    # Crucially, strip whitespace from the code here, as Oracle CHAR/VARCHAR2 can have padding
+    # Only include non-NULL codes for lookup
+    auth1_by_codes = list(set([str(row[4]).strip() for row in raw_employees if row[4] is not None and row[4]])) # Index 4 is AUTH1_BY
     
     # Dictionary to store emp_code -> emp_name mapping
     approved_by_names = {}
     if auth1_by_codes:
-        # Construct dynamic placeholders for the IN clause
-        placeholders = ','.join([f':code{i}' for i in range(len(auth1_by_codes))])
-        params = {f'code{i}': code for i, code in enumerate(auth1_by_codes)}
+        # Build a list of named parameters for the IN clause
+        param_names = [f"auth_code_{i}" for i in range(len(auth1_by_codes))]
+        placeholders = ', '.join([f':{name}' for name in param_names])
+        params = {param_names[i]: code for i, code in enumerate(auth1_by_codes)}
 
         try:
             with connection.cursor() as name_cursor:
-                # Query emp_mst@dl10gto12c to get names for AUTH1_BY codes
-                name_cursor.execute(f"SELECT EMP_CODE, EMP_NAME FROM emp_mst@dl10gto12c WHERE EMP_CODE IN ({placeholders})", params)
-                for emp_code, emp_name in name_cursor.fetchall():
-                    approved_by_names[str(emp_code).strip()] = emp_name # .strip() to handle potential whitespace
+                # *** UPDATED QUERY FOR HOD NAMES USING USER_MST ***
+                sql_query_for_names = f"SELECT ENTRY_NO, USER_NAME FROM USER_MST@dl10gto12c WHERE ENTRY_NO IN ({placeholders})"
+                name_cursor.execute(sql_query_for_names, params)
+                
+                for entry_no, user_name in name_cursor.fetchall():
+                    # Strip spaces from entry_no coming from DB to match stripped input codes
+                    approved_by_names[str(entry_no).strip()] = user_name
         except Exception as e:
-            print(f"Error fetching approved_by names: {e}")
-            # Handle error, maybe log it and proceed without names or show a fallback
+            print(f"Error fetching approved_by names from USER_MST: {e}")
+            # Log this error for debugging
+            # messages.error(request, f"Could not fetch some approved by names: {e}")
 
     for row in raw_employees:
         employee_dict = dict(zip(columns, row))
         
-        # Replace AUTH1_BY code with name, or use code if name not found
-        auth1_by_code = str(employee_dict.get('AUTH1_BY', '')).strip()
-        employee_dict['AUTH1_BY_NAME'] = approved_by_names.get(auth1_by_code, auth1_by_code)
+        # Get the AUTH1_BY code from the current row
+        auth1_by_code_raw = employee_dict.get('AUTH1_BY')
+        
+        # Determine what to display for 'Approved By'
+        if auth1_by_code_raw is None: # Check if the raw value is NULL
+            employee_dict['AUTH1_BY_NAME'] = "BY PASS HOD"
+        else:
+            auth1_by_code_stripped = str(auth1_by_code_raw).strip()
+            # Use the stripped code to look up the name in the approved_by_names dictionary
+            # Fallback to the code itself if the name isn't found
+            employee_dict['AUTH1_BY_NAME'] = approved_by_names.get(auth1_by_code_stripped, auth1_by_code_stripped)
         
         employees_to_mark_out.append(employee_dict)
 
     return render(request, 'gatepass_app/mark_out_screen.html', {'employees': employees_to_mark_out})
+
 
 @login_required
 def process_mark_out(request, gatepass_no):
