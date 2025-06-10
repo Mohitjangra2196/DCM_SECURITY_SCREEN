@@ -19,7 +19,7 @@ def mark_out_screen(request):
     employees_to_mark_out = []
     with connection.cursor() as cursor:
         # Initial query to get gate pass entries awaiting mark out
-        cursor.execute("SELECT GATEPASS_NO, NAME, DEPARTMENT, REMARKS, AUTH1_BY, AUTH1_DATE, REQUEST_TIME FROM GATEPASS WHERE FINAL_STATUS = 'A' AND OUT_TIME IS NULL")
+        cursor.execute("SELECT GATEPASS_NO, NAME, DEPARTMENT, REMARKS, AUTH1_BY, AUTH1_DATE, REQUEST_TIME FROM GATEPASS WHERE FINAL_STATUS = 'A' AND OUT_TIME IS NULL AND EARLY_LATE <> 'L'")
         columns = [col[0] for col in cursor.description]
         raw_employees = cursor.fetchall()
 
@@ -101,7 +101,7 @@ def process_mark_out(request, gatepass_no):
 def mark_in_screen(request):
     employees_to_mark_in = []
     with connection.cursor() as cursor:
-        cursor.execute("SELECT GATEPASS_NO, NAME, DEPARTMENT, OUT_TIME, OUT_BY FROM GATEPASS WHERE INOUT_STATUS = 'O'")
+        cursor.execute("SELECT GATEPASS_NO, NAME, DEPARTMENT, OUT_TIME, OUT_BY FROM GATEPASS WHERE INOUT_STATUS = 'O' AND EARLY_LATE <> 'E' ")
         columns = [col[0] for col in cursor.description]
         raw_employees = cursor.fetchall()
 
