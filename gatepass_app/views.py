@@ -7,7 +7,6 @@ from django.utils import timezone
 from .models import GatePass, SecurityGuard
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt # Use carefully, for simple APIs
-from django.db import connection
 
 # DRF Imports
 from rest_framework import viewsets, status
@@ -16,8 +15,12 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from .serializers import SecurityGuardSerializer, GatePassSerializer, EmployeeDetailsSerializer
 
+# Import for timezone handling
+from pytz import timezone as pytz_timezone 
 
-# Existing HTML-rendering views (keep them as they are)
+# Define the Oracle server's actual timezone (IST)
+ORACLE_SERVER_TIMEZONE = pytz_timezone('Asia/Kolkata')
+
 @login_required
 def home_screen(request):
     security_guards = SecurityGuard.objects.all().order_by('username')
@@ -31,33 +34,18 @@ def mark_out_screen(request):
         columns = [col[0] for col in cursor.description]
         raw_employees = cursor.fetchall()
 
-    auth1_by_codes = list(set([str(row[4]).strip() for row in raw_employees if row[4] is not None and row[4]]))
-    
-    approved_by_names = {}
-    if auth1_by_codes:
-        param_names = [f"auth_code_{i}" for i in range(len(auth1_by_codes))]
-        placeholders = ', '.join([f':{name}' for name in param_names])
-        params = {param_names[i]: code for i, code in enumerate(auth1_by_codes)}
-
-        try:
-            with connection.cursor() as name_cursor:
-                sql_query_for_names = f"SELECT ENTRY_NO, USER_NAME FROM USER_MST@dl10gto12c WHERE ENTRY_NO IN ({placeholders})"
-                name_cursor.execute(sql_query_for_names, params)
-                
-                for entry_no, user_name in name_cursor.fetchall():
-                    approved_by_names[str(entry_no).strip()] = user_name
-        except Exception as e:
-            print(f"Error fetching approved_by names from USER_MST: {e}")
+    # The logic to fetch approved_by_names is no longer necessary
+    # as we will only display "Approved by HOD" or "BYPASS HOD"
 
     for row in raw_employees:
         employee_dict = dict(zip(columns, row))
         auth1_by_code_raw = employee_dict.get('AUTH1_BY')
         
+        # Determine the display string for 'Approved By'
         if auth1_by_code_raw is None:
-            employee_dict['AUTH1_BY_NAME'] = "BY PASS HOD"
+            employee_dict['AUTH1_BY_DISPLAY'] = "ByPass" 
         else:
-            auth1_by_code_stripped = str(auth1_by_code_raw).strip()
-            employee_dict['AUTH1_BY_NAME'] = approved_by_names.get(auth1_by_code_stripped, auth1_by_code_stripped)
+            employee_dict['AUTH1_BY_DISPLAY'] = "Approved"
         
         employees_to_mark_out.append(employee_dict)
 
@@ -67,7 +55,12 @@ def mark_out_screen(request):
 @login_required
 def process_mark_out(request, gatepass_no):
     if request.method == 'POST':
-        current_time = timezone.now()
+        # Get the current time in the Oracle server's local timezone (IST)
+        current_time_aware_ist = timezone.now().astimezone(ORACLE_SERVER_TIMEZONE)
+        
+        # Now, make it naive *before* passing it to Oracle.
+        naive_time_for_oracle = current_time_aware_ist.replace(tzinfo=None)
+
         security_guard_id = request.user.unique_code
 
         try:
@@ -78,7 +71,7 @@ def process_mark_out(request, gatepass_no):
                     SET OUT_TIME = :out_time, OUT_BY = :out_by, INOUT_STATUS = 'O'
                     WHERE GATEPASS_NO = :gatepass_no
                     """,
-                    {'out_time': current_time, 'out_by': security_guard_id, 'gatepass_no': gatepass_no}
+                    {'out_time': naive_time_for_oracle, 'out_by': security_guard_id, 'gatepass_no': gatepass_no}
                 )
             messages.success(request, f"Employee {gatepass_no} marked out successfully.")
         except Exception as e:
@@ -106,6 +99,21 @@ def mark_in_screen(request):
         employee_dict = dict(zip(columns, row))
         out_by_code = str(employee_dict.get('OUT_BY', '')).strip()
         employee_dict['OUT_BY_NAME'] = security_guard_names.get(out_by_code, out_by_code)
+
+        raw_out_time_from_db = employee_dict.get('OUT_TIME')
+        if raw_out_time_from_db:
+            # Oracle's DATE column returns naive datetime objects.
+            # We know Oracle server is in Asia/Kolkata (IST).
+            # So, we must explicitly make the naive datetime aware of IST first.
+            if timezone.is_naive(raw_out_time_from_db):
+                # Localize the naive datetime to the Oracle server's timezone (IST)
+                aware_time_in_oracle_tz = ORACLE_SERVER_TIMEZONE.localize(raw_out_time_from_db)
+                
+                # Now, assign this correctly localized (IST-aware) datetime back to the dict.
+                # Django's template engine will then correctly convert this IST-aware time to the
+                # template's desired timezone (Asia/Kolkata) if needed, but it's already IST.
+                employee_dict['OUT_TIME'] = aware_time_in_oracle_tz
+            # If for some reason it's already aware, leave it as is (though unlikely for DATE column)
         
         employees_to_mark_in.append(employee_dict)
 
@@ -114,7 +122,12 @@ def mark_in_screen(request):
 @login_required
 def process_mark_in(request, gatepass_no):
     if request.method == 'POST':
-        current_time = timezone.now()
+        # Get the current time in the Oracle server's local timezone (IST)
+        current_time_aware_ist = timezone.now().astimezone(ORACLE_SERVER_TIMEZONE)
+        
+        # Now, make it naive *before* passing it to Oracle.
+        naive_time_for_oracle = current_time_aware_ist.replace(tzinfo=None)
+        
         security_guard_id = request.user.unique_code
 
         try:
@@ -125,7 +138,7 @@ def process_mark_in(request, gatepass_no):
                     SET IN_TIME = :in_time, IN_BY = :in_by, INOUT_STATUS = 'I'
                     WHERE GATEPASS_NO = :gatepass_no
                     """,
-                    {'in_time': current_time, 'in_by': security_guard_id, 'gatepass_no': gatepass_no}
+                    {'in_time': naive_time_for_oracle, 'in_by': security_guard_id, 'gatepass_no': gatepass_no}
                 )
             messages.success(request, f"Employee {gatepass_no} marked in successfully.")
         except Exception as e:
@@ -142,7 +155,7 @@ def get_employee_details(request, emp_code):
             with connection.cursor() as cursor:
                 sql = """
                 SELECT EMP_NAME, GRADE, DESIG
-                FROM emp_mst@dl10gto12c
+                FROM emp_mst
                 WHERE EMP_CODE = :emp_code
                 """
                 cursor.execute(sql, {'emp_code': emp_code})
@@ -270,7 +283,7 @@ def api_get_employee_details(request, emp_code):
         with connection.cursor() as cursor:
             sql = """
             SELECT EMP_NAME, GRADE, DESIG
-            FROM emp_mst@dl10gto12c
+            FROM emp_mst
             WHERE EMP_CODE = :emp_code
             """
             cursor.execute(sql, {'emp_code': emp_code})

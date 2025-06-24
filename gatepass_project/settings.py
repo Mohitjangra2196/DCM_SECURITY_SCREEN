@@ -86,7 +86,7 @@ DATABASES = {
         'ENGINE': 'django.db.backends.oracle',
         'NAME': 'ORCL',
         'USER': 'APPS',
-        'PASSWORD': 'welcome',
+        'PASSWORD': 'WELCOME',
         'HOST': '192.168.1.6',
         'PORT': '1521',
         'ATOMIC_REQUESTS': True, 

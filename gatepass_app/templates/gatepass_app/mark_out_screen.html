@@ -13,7 +13,7 @@
                 {#<th>Gatepass No</th>#}
                 <th>Name</th>
                 <th>Department</th>
-                <th>Approved By <br>(HOD Name)</th> {# Updated header text #}
+                <th>Approved<br>/ByPass </th> {# Keep this header text #}
                 {#<th>Approved Date</th>#}
                 {#<th>Request Time</th>#}
                 <th>Action</th>
@@ -25,7 +25,7 @@
                 {#<td>{{ employee.GATEPASS_NO }}</td>#}
                 <td>{{ employee.NAME }}</td>
                 <td>{{ employee.DEPARTMENT }}</td>
-                <td>{{ employee.AUTH1_BY_NAME }}</td> {# Changed to display the fetched name #}
+                <td>{{ employee.AUTH1_BY_DISPLAY }}</td> {# THIS LINE IS THE IMPORTANT CHANGE #}
                 {#<td>{{ employee.AUTH1_DATE|date:"Y-m-d" }}</td>#}
                 {#<td>{{ employee.REQUEST_TIME }}</td>#}
                 <td>
