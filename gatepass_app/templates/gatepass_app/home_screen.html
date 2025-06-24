@@ -51,7 +51,6 @@
         <div class="card">
             <div class="card-body">
                 <h5 class="card-title">{{ guard.first_name }} {{ guard.last_name }} ({{ guard.username }})</h5>
-                <p class="card-text"><strong>Unique Code:</strong> {{ guard.unique_code }}</p>
                 <p class="card-text"><strong>Last Login:</strong> {{ guard.last_login|default:"Never" }}</p>
                 <p class="card-text"><strong>Joined On:</strong> {{ guard.date_joined|date:"d M Y" }}</p>
             </div>

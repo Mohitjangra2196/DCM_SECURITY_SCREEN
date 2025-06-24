@@ -1,22 +1,18 @@
 # gatepass_app/models.py
 from django.db import models
-from django.contrib.auth.models import AbstractUser
+# from django.contrib.auth.models import AbstractUser # AbstractUser is no longer needed
 
-# gatepass_app/models.py
-from django.db import models
-from django.contrib.auth.models import AbstractUser
-
-class SecurityGuard(AbstractUser):
-    unique_code = models.CharField(max_length=60, unique=True, verbose_name="Unique Code (Employee Code)")
-    grade = models.CharField(max_length=100, blank=True, null=True, verbose_name="Grade")
-    desig = models.CharField(max_length=200, blank=True, null=True, verbose_name="Designation")
-    
-    def __str__(self):
-        return self.username
+# The SecurityGuard model definition is removed.
+# If you need to store unique_code, grade, desig for other purposes,
+# consider creating a separate 'Profile' model linked to Django's default User.
 
 
 class GatePass(models.Model):
-    GATEPASS_NO = models.CharField(max_length=60, primary_key=True) # Assuming GATEPASS_NO is unique
+    """
+    Model representing a GatePass, mapped to an existing Oracle view/table 'GATEPASS'.
+    It is set to managed = False as Django will not manage its schema.
+    """
+    GATEPASS_NO = models.CharField(max_length=60, primary_key=True) # Assuming GATEPASS_NO is unique and primary key
     GATEPASS_DATE = models.DateField()
     PAYCODE = models.CharField(max_length=60)
     NAME = models.CharField(max_length=300, null=True, blank=True)
@@ -31,24 +27,13 @@ class GatePass(models.Model):
     AUTH1_REMARKS = models.CharField(max_length=150, null=True, blank=True)
     FINAL_STATUS = models.CharField(max_length=3, null=True, blank=True) # A = Approved
     OUT_TIME = models.DateTimeField(null=True, blank=True)
-    OUT_BY = models.CharField(max_length=60, null=True, blank=True)
+    OUT_BY = models.CharField(max_length=60, null=True, blank=True) # Represents who marked out
     IN_TIME = models.DateTimeField(null=True, blank=True)
-    IN_BY = models.CharField(max_length=60, null=True, blank=True)
+    IN_BY = models.CharField(max_length=60, null=True, blank=True) # Represents who marked in
     INOUT_STATUS = models.CharField(max_length=3, null=True, blank=True) # O = Out, I = In
 
     class Meta:
         managed = False  # Django will not manage this table/view's schema
         db_table = 'GATEPASS' # The actual view name in Oracle
-        # You might need to specify the app_label if you have multiple apps
-        # app_label = 'gatepass_app'
-
-
-# Consider a separate model for actual gatepass movements if the view is not directly updatable for IN/OUT statuses
-# class GatePassMovement(models.Model):
-#     gatepass_no = models.ForeignKey(GatePass, on_delete=models.CASCADE, to_field='GATEPASS_NO')
-#     out_time = models.DateTimeField(null=True, blank=True)
-#     out_by = models.ForeignKey(SecurityGuard, on_delete=models.SET_NULL, null=True, related_name='marked_out')
-#     in_time = models.DateTimeField(null=True, blank=True)
-#     in_by = models.ForeignKey(SecurityGuard, on_delete=models.SET_NULL, null=True, related_name='marked_in')
-#     status = models.CharField(max_length=3, default='O') # 'O' for Out, 'I' for In
-#     # Add any other fields if needed for auditing the movements    
+        # If you have multiple apps and this model might conflict,
+        # you might need to specify app_label, e.g., app_label = 'gatepass_app'

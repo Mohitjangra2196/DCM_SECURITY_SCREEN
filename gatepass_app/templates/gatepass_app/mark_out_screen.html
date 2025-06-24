@@ -10,24 +10,18 @@
     <table class="table table-striped table-hover">
         <thead class="thead-dark">
             <tr>
-                {#<th>Gatepass No</th>#}
                 <th>Name</th>
                 <th>Department</th>
-                <th>Approved<br>/ByPass </th> {# Keep this header text #}
-                {#<th>Approved Date</th>#}
-                {#<th>Request Time</th>#}
+                <th>Status - Type </th> {# Keep this header text #}
                 <th>Action</th>
             </tr>
         </thead>
         <tbody>
             {% for employee in employees %}
             <tr>
-                {#<td>{{ employee.GATEPASS_NO }}</td>#}
                 <td>{{ employee.NAME }}</td>
                 <td>{{ employee.DEPARTMENT }}</td>
-                <td>{{ employee.AUTH1_BY_DISPLAY }}</td> {# THIS LINE IS THE IMPORTANT CHANGE #}
-                {#<td>{{ employee.AUTH1_DATE|date:"Y-m-d" }}</td>#}
-                {#<td>{{ employee.REQUEST_TIME }}</td>#}
+                <td>{{ employee.AUTH1_BY_DISPLAY }}</td> 
                 <td>
                     <form action="{% url 'process_mark_out' gatepass_no=employee.GATEPASS_NO %}" method="post">
                         {% csrf_token %}

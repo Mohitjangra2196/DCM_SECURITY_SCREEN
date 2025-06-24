@@ -1,5 +1,5 @@
 {# gatepass_app/templates/gatepass_app/base.html #}
-{% load static %}  {# <--- ADD THIS LINE HERE #}
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -22,15 +22,27 @@
                 <li class="nav-item">
                     <a class="nav-link" href="{% url 'home_screen' %}">Home</a>
                 </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="{% url 'mark_out_screen' %}">Mark Out</a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="{% url 'mark_in_screen' %}">Mark In</a>
-                </li>
+                {# Conditional navigation based on current page #}
+                {% if request.resolver_match.url_name == 'mark_out_screen' %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'mark_in_screen' %}">Mark In</a>
+                    </li>
+                {% elif request.resolver_match.url_name == 'mark_in_screen' %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'mark_out_screen' %}">Mark Out</a>
+                    </li>
+                {# If on home screen or any other page, show both Mark Out and Mark In #}
+                {% else %} 
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'mark_out_screen' %}">Mark Out</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'mark_in_screen' %}">Mark In</a>
+                    </li>
+                {% endif %}
             </ul>
             <span class="navbar-text mr-3">
-                Welcome, {{ request.user.username }} ({{ request.user.unique_code }})
+                Welcome, {{ request.user.username }}
             </span>
             <ul class="navbar-nav">
                 <li class="nav-item">

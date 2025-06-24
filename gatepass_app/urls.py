@@ -8,7 +8,7 @@ from rest_framework.routers import DefaultRouter
 
 # Create a router and register our viewsets with it.
 router = DefaultRouter()
-router.register(r'security-guards', views.SecurityGuardViewSet)
+# SecurityGuardViewSet registration is removed.
 router.register(r'gatepasses', views.GatePassViewSet)
 
 
@@ -25,7 +25,7 @@ urlpatterns = [
     # path('api/get_employee_details/<str:emp_code>/', views.get_employee_details, name='get_employee_details_api'),
 
     # New DRF API Endpoints
-    path('api/', include(router.urls)), # Includes URLs for SecurityGuardViewSet and GatePassViewSet
+    path('api/', include(router.urls)), # Includes URLs for GatePassViewSet
     path('api/employee-details/<str:emp_code>/', views.api_get_employee_details, name='api_employee_details'),
     path('api-auth/', include('rest_framework.urls', namespace='rest_framework')), # For DRF browsable API login/logout
 

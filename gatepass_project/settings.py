@@ -20,7 +20,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/3.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-v*5=(og$lb-7td3ifqzltl2f2ef^0^@1(%h1wvzm(wy3@e8#3&'
+SECRET_KEY = 'django-insecure-v*5=(og$lb-77d3ifqzltl2f2ef^0^@1(%h1wvzm(wy3@e8#3&'
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -94,7 +94,7 @@ DATABASES = {
             # Keep other cx_Oracle specific options here if needed,
             # like 'DEFAULT_NCHAR': True if you uncomment it
         },
-       
+        
     }
 }
 
@@ -124,7 +124,7 @@ LANGUAGE_CODE = 'en-us'
 
 TIME_ZONE = 'UTC'
 
-USE_I18N = True
+USE_I10N = True
 
 USE_L10N = True
 
@@ -150,8 +150,7 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
-# Add this for security guard authentication
-AUTH_USER_MODEL = 'gatepass_app.SecurityGuard'
+# The AUTH_USER_MODEL line is completely removed to revert to Django's default User model.
 LOGIN_URL = 'login' # This tells Django to use the URL named 'login' for redirects
 LOGIN_REDIRECT_URL = 'home_screen' # Where to go after successful login
 LOGOUT_REDIRECT_URL = 'login' # Where to go after logout (optional, but good practice)
