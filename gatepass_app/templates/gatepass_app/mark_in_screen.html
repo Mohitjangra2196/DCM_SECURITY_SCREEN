@@ -1,10 +1,15 @@
 {% extends 'gatepass_app/base.html' %}
-{% load tz %} {# ADD THIS LINE: Load the timezone template tags #}
+{% load tz %} {# Load the timezone template tags #}
 
 {% block title %}Mark In{% endblock %}
 
 {% block content %}
 <h1 class="mb-4">Mark In Employees</h1>
+
+{# Added Mark Out button for quick navigation within content #}
+<div class="d-flex justify-content-end mb-3"> {# Flexbox to push button to the right #}
+    <a class="btn btn-outline-danger" href="{% url 'mark_out_screen' %}">Go to Mark Out Screen</a>
+</div>
 
 {% if employees %}
 <div class="table-responsive">
