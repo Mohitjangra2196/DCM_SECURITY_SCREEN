@@ -1,4 +1,5 @@
 cd ..
 .\myenv_3.10\Scripts\activate
+
 cd .\DCM_SECURITY_SCREEN\
  python .\manage.py runserver

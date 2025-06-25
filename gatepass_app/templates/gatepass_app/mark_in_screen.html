@@ -6,8 +6,8 @@
 {% block content %}
 <h1 class="mb-4">Mark In Employees</h1>
 
-{# Added Mark Out button for quick navigation within content #}
-<div class="d-flex justify-content-end mb-3"> {# Flexbox to push button to the right #}
+<div class="d-flex justify-content-between mb-3"> {# Use justify-content-between to space out items #}
+    <a class="btn btn-primary" href="{% url 'create_manual_gatepass_entry' %}">Create Manual Entry</a>
     <a class="btn btn-outline-danger" href="{% url 'mark_out_screen' %}">Go to Mark Out Screen</a>
 </div>
 
@@ -50,7 +50,7 @@
 </div>
 {% else %}
 <div class="alert alert-info" role="alert">
-    No employees with INOUT_STATUS = 'O' are currently awaiting Mark In.
+    No employees OUT!
 </div>
 {% endif %}
 {% endblock %}
