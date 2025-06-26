@@ -34,7 +34,7 @@ class ManualGatePassForm(forms.Form):
     )
 
     mark_out_duration = forms.ChoiceField(
-        label="Mark Out Duration (Adjust Mark Out Time)",
+        label="Short leave Time",
         choices=[
             ('30', '30 min'),
             ('60', '1 hr'),
@@ -51,6 +51,7 @@ class ManualGatePassForm(forms.Form):
             ('390', '6 hr 30 min'),
             ('420', '7 hr'),
             ('450', '7 hr 30 min'),
+            ('480', '8 hr'),
         ],
         widget=forms.Select(attrs={'class': 'form-select'}),
         initial='30' # Default to 30 min

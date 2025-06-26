@@ -20,7 +20,7 @@
     <form method="post" id="gatepassForm">
         {% csrf_token %}
         <div class="row mb-3">
-            <div class="col-md-6">
+            <div class="col-md-12">
                 <div class="form-group">
                     {{ form.PAYCODE.label_tag }}
                     {{ form.PAYCODE }}
@@ -29,6 +29,18 @@
                     {% endif %}
                 </div>
             </div>
+        </div>
+
+        <div class="row mb-3"> 
+            <div class="col-md-6">
+                <div class="form-group">
+                    {{ form.mark_out_duration.label_tag }}
+                    {{ form.mark_out_duration }}
+                    {% if form.mark_out_duration.errors %}
+                        <div class="text-danger">{{ form.mark_out_duration.errors }}</div>
+                    {% endif %}
+                </div>  
+            </div>    
             <div class="col-md-6">
                 <div class="form-group">
                     {{ form.GATEPASS_TYPE.label_tag }}
@@ -36,9 +48,10 @@
                     {% if form.GATEPASS_TYPE.errors %}
                         <div class="text-danger">{{ form.GATEPASS_TYPE.errors }}</div>
                     {% endif %}
-                </div>
+                </div>    
             </div>
         </div>
+        
 
         {# Added Employee Name and Department fields #}
         <div class="row mb-3">
@@ -65,15 +78,6 @@
         <div class="row mb-3">
             <div class="col-md-6">
                 <div class="form-group">
-                    {{ form.mark_out_duration.label_tag }}
-                    {{ form.mark_out_duration }}
-                    {% if form.mark_out_duration.errors %}
-                        <div class="text-danger">{{ form.mark_out_duration.errors }}</div>
-                    {% endif %}
-                </div>
-            </div>
-            <div class="col-md-6">
-                <div class="form-group">
                     {{ form.MARK_IN_TIME.label_tag }}
                     {{ form.MARK_IN_TIME }}
                     {% if form.MARK_IN_TIME.errors %}
@@ -81,24 +85,22 @@
                     {% endif %}
                 </div>
             </div>
-        </div>
-
-        {# Displayed field for MARK_OUT_TIME_DISPLAY #}
-        <div class="row mb-3">
-            <div class="col-md-6">
+            <div class="col-md-6">                
                 <div class="form-group">
                     {{ form.MARK_OUT_TIME_DISPLAY.label_tag }}
                     {{ form.MARK_OUT_TIME_DISPLAY }}
                     {% if form.MARK_OUT_TIME_DISPLAY.errors %}
                         <div class="text-danger">{{ form.MARK_OUT_TIME_DISPLAY.errors }}</div>
                     {% endif %}
-                </div>
-            </div>
+                </div>                
+            </div>            
         </div>
+
+
 
         <div class="row mt-4">
             <div class="col-12">
-                <button type="button" id="createEntryButton" class="btn btn-success me-2">Create Entry</button>
+                <button type="button" id="createEntryButton" class="btn btn-success me-2">Submit</button>
                 <a href="{% url 'mark_in_screen' %}" class="btn btn-secondary">Cancel</a>
             </div>
         </div>
@@ -116,7 +118,7 @@
         const gatepassForm = document.getElementById('gatepassForm');
         const createEntryButton = document.getElementById('createEntryButton');
 
-        // Helper function to format Date object to "M/D/YYYY H:MM:SS AM/PM"
+        // Helper function to format Date object to "M/D/YYYY H:MM:SS AM/PM" for DISPLAY
         function formatDate(date) {
             if (!date instanceof Date || isNaN(date)) {
                 return ''; // Handle invalid date
@@ -137,7 +139,6 @@
         }
 
         // Helper function to parse "M/D/YYYY H:MM:SS AM/PM" string to Date object
-        // This is crucial for accurate calculations.
         function parseCustomDateTime(dateTimeString) {
             // Regex to parse "M/D/YYYY H:MM:SS AM/PM"
             const regex = /(\d{1,2})\/(\d{1,2})\/(\d{4}) (\d{1,2}):(\d{2}):(\d{2}) (AM|PM)/i;
@@ -165,8 +166,26 @@
             }
 
             // Create a Date object (month is 0-indexed in Date constructor)
+            // This Date object will be in the browser's local timezone.
             return new Date(year, month - 1, day, hours, minutes, seconds);
         }
+
+        // NEW HELPER FUNCTION: Format Date object to YYYY-MM-DDTHH:MM:SS using LOCAL components
+        // This generates a string that Python's datetime.fromisoformat can parse as naive.
+        function formatDateToLocalISO(date) {
+            if (!date instanceof Date || isNaN(date)) {
+                return '';
+            }
+            const year = date.getFullYear();
+            const month = (date.getMonth() + 1).toString().padStart(2, '0');
+            const day = date.getDate().toString().padStart(2, '0');
+            const hours = date.getHours().toString().padStart(2, '0');
+            const minutes = date.getMinutes().toString().padStart(2, '0');
+            const seconds = date.getSeconds().toString().padStart(2, '0');
+
+            return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
+        }
+
 
         function calculateMarkOutTime() {
             const markInTimeValue = markInTimeInput.value;
@@ -214,7 +233,6 @@
         fetchEmployeeDetails();
 
         // Recalculate when MARK_IN_TIME or mark_out_duration changes
-        // Use 'input' event for more immediate feedback, in case input type changes or user types
         markInTimeInput.addEventListener('input', calculateMarkOutTime);
         markOutDurationSelect.addEventListener('change', calculateMarkOutTime);
 
@@ -225,12 +243,6 @@
         createEntryButton.addEventListener('click', function() {
             calculateMarkOutTime(); // Recalculate just before submission to ensure freshness
 
-            // We need to send the Mark In and Mark Out times to the backend
-            // in a format that Django's `datetime.fromisoformat` (or a similar parser) can handle,
-            // or a format that Oracle can directly interpret without timezone issues.
-            // A good standard for backend is ISO format (YYYY-MM-DDTHH:MM:SS) for consistency.
-            // So, we'll convert back from the displayed format to ISO for submission.
-
             const markInDateTime = parseCustomDateTime(markInTimeInput.value);
             const markOutDateTime = parseCustomDateTime(markOutTimeDisplayInput.value);
 
@@ -239,17 +251,18 @@
                 return; // Prevent form submission
             }
 
-            // Create hidden inputs for the backend. Use a standard format like ISO.
-            // Python's datetime.fromisoformat handles 'YYYY-MM-DDTHH:MM:SS' well.
+            // Create hidden inputs for the backend.
+            // Use the new formatDateToLocalISO function to ensure the string represents
+            // the local time directly, without UTC conversion from toISOString().
             const hiddenMarkInTimeInput = document.createElement('input');
             hiddenMarkInTimeInput.type = 'hidden';
             hiddenMarkInTimeInput.name = 'MARK_IN_TIME';
-            hiddenMarkInTimeInput.value = markInDateTime.toISOString().slice(0, 19); // YYYY-MM-DDTHH:MM:SS
+            hiddenMarkInTimeInput.value = formatDateToLocalISO(markInDateTime);
 
             const hiddenMarkOutTimeInput = document.createElement('input');
             hiddenMarkOutTimeInput.type = 'hidden';
             hiddenMarkOutTimeInput.name = 'MARK_OUT_TIME';
-            hiddenMarkOutTimeInput.value = markOutDateTime.toISOString().slice(0, 19); // YYYY-MM-DDTHH:MM:SS
+            hiddenMarkOutTimeInput.value = formatDateToLocalISO(markOutDateTime);
 
             // Append these hidden inputs to the form
             gatepassForm.appendChild(hiddenMarkInTimeInput);

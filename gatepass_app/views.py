@@ -5,9 +5,10 @@ from django.contrib import messages
 from django.db import connection # For raw SQL queries
 from django.utils import timezone
 from .models import GatePass
-from django.http import JsonResponse # Added this import
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt 
 from django.contrib.auth import get_user_model
-from datetime import datetime, timedelta # Added datetime and timedelta import here
+from datetime import datetime, timedelta
 
 # Import the new form
 from .forms import ManualGatePassForm
@@ -15,6 +16,7 @@ from .forms import ManualGatePassForm
 # DRF Imports
 from rest_framework import viewsets, status
 from rest_framework.response import Response
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from .serializers import GatePassSerializer
 
@@ -30,10 +32,8 @@ User = get_user_model() # Get the currently active user model (which is now Djan
 def home_screen(request):
     # Filter out superusers from the list of security guards
     # is_superuser=False will exclude any user marked as a superuser.
-    security_guards = User.objects.filter(is_superuser=False).order_by('username') # Corrected order_ok_by to order_by
+    security_guards = User.objects.filter(is_superuser=False).order_by('username')
     return render(request, 'gatepass_app/home_screen.html', {'security_guards': security_guards})
-
-
 
 @login_required
 def mark_out_screen(request):
@@ -63,7 +63,6 @@ def mark_out_screen(request):
     return render(request, 'gatepass_app/mark_out_screen.html', {'employees': employees_to_mark_out})
 
 
-
 @login_required
 def process_mark_out(request, gatepass_no):
     if request.method == 'POST':
@@ -88,52 +87,31 @@ def process_mark_out(request, gatepass_no):
         return redirect('mark_out_screen')
     return redirect('mark_out_screen')
 
-
 @login_required
 def mark_in_screen(request):
-    employees_to_mark_in = [] # Initialize an empty list
-
+    employees_to_mark_in = []
     with connection.cursor() as cursor:
         cursor.execute("SELECT GATEPASS_NO, (NAME||' ('||PAYCODE||')') NAME, DEPARTMENT, OUT_TIME, OUT_BY FROM GATEPASS WHERE INOUT_STATUS = 'O' AND EARLY_LATE <> 'E' ")
         columns = [col[0] for col in cursor.description]
         raw_employees = cursor.fetchall()
 
-    out_by_identifiers = list(set([row[4] for row in raw_employees if row[4]]))
-
-    security_guard_names = {}
-    if out_by_identifiers:
-        guards = User.objects.filter(username__in=out_by_identifiers)
-        for guard in guards:
-            security_guard_names[guard.username] = guard.username
-
-    # This loop processes each employee and appends them to the list
     for row in raw_employees:
         employee_dict = dict(zip(columns, row))
-        out_by_identifier = str(employee_dict.get('OUT_BY', '')).strip()
-        employee_dict['OUT_BY_NAME'] = security_guard_names.get(out_by_identifier, out_by_identifier)
 
         raw_out_time_from_db = employee_dict.get('OUT_TIME')
         if raw_out_time_from_db:
             if timezone.is_naive(raw_out_time_from_db):
                 aware_time_in_oracle_tz = ORACLE_SERVER_TIMEZONE.localize(raw_out_time_from_db)
-            else:
-                aware_time_in_oracle_tz = raw_out_time_from_db.astimezone(ORACLE_SERVER_TIMEZONE)
-            # Format OUT_TIME for display in the M/D/YYYY H:MM:SS AM/PM format
-            employee_dict['OUT_TIME'] = aware_time_in_oracle_tz.strftime('%#m/%#d/%Y %#I:%M:%S %p')
-
-        # Append employee_dict inside the loop, after it's fully populated
+                employee_dict['OUT_TIME'] = aware_time_in_oracle_tz
         employees_to_mark_in.append(employee_dict)
 
     return render(request, 'gatepass_app/mark_in_screen.html', {'employees': employees_to_mark_in})
-
-
 
 @login_required
 def process_mark_in(request, gatepass_no):
     if request.method == 'POST':
         current_time_aware_ist = timezone.now().astimezone(ORACLE_SERVER_TIMEZONE)
         naive_time_for_oracle = current_time_aware_ist.replace(tzinfo=None)
-
         security_guard_identifier = request.user.username
 
         try:
@@ -170,64 +148,38 @@ class GatePassViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
 
         gatepass_no = instance.GATEPASS_NO
+        current_time = timezone.now()
         security_guard_identifier = request.user.username
-
         update_fields = []
         params = {}
 
-        out_time_data = request.data.get('OUT_TIME')
-        in_time_data = request.data.get('IN_TIME')
-
-        if out_time_data:
-            try:
-                # Assuming out_time_data is now ISO format (YYYY-MM-DDTHH:MM:SS) from JS
-                out_time_obj = datetime.fromisoformat(out_time_data)
-                if timezone.is_naive(out_time_obj):
-                    out_time_aware_ist = ORACLE_SERVER_TIMEZONE.localize(out_time_obj)
-                else:
-                    out_time_aware_ist = out_time_obj.astimezone(ORACLE_SERVER_TIMEZONE)
-                params['out_time'] = out_time_aware_ist.replace(tzinfo=None)
-                update_fields.append("OUT_TIME = :out_time")
-            except ValueError:
-                return Response({"detail": "Invalid OUT_TIME format."}, status=status.HTTP_400_BAD_REQUEST)
-
-        if in_time_data:
-            try:
-                # Assuming in_time_data is now ISO format (YYYY-MM-DDTHH:MM:SS) from JS
-                in_time_obj = datetime.fromisoformat(in_time_data)
-                if timezone.is_naive(in_time_obj):
-                    in_time_aware_ist = ORACLE_SERVER_TIMEZONE.localize(in_time_obj)
-                else:
-                    in_time_aware_ist = in_time_obj.astimezone(ORACLE_SERVER_TIMEZONE)
-                params['in_time'] = in_time_aware_ist.replace(tzinfo=None)
-                update_fields.append("IN_TIME = :in_time")
-            except ValueError:
-                return Response({"detail": "Invalid IN_TIME format."}, status=status.HTTP_400_BAD_REQUEST)
-
-        # Direct fields from request.data
+        if 'OUT_TIME' in request.data:
+            update_fields.append("OUT_TIME = :out_time")
+            params['out_time'] = out_time
         if 'OUT_BY' in request.data:
             update_fields.append("OUT_BY = :out_by")
-            params['out_by'] = request.data['OUT_BY']
+            params['out_by'] = out_by
+        if 'IN_TIME' in request.data:
+            update_fields.append("IN_TIME = :in_time")
+            params['in_time'] = in_time
         if 'IN_BY' in request.data:
             update_fields.append("IN_BY = :in_by")
-            params['in_by'] = request.data['IN_BY']
+            params['in_by'] = in_by
         if 'INOUT_STATUS' in request.data:
             update_fields.append("INOUT_STATUS = :inout_status")
-            params['inout_status'] = request.data['INOUT_STATUS']
-
-        # Auto-fill OUT_BY/IN_BY and INOUT_STATUS if time is provided but _BY is not
-        if 'OUT_BY' not in request.data and out_time_data:
+            params['inout_status'] = inout_status
+        
+        if 'OUT_BY' not in request.data and 'OUT_TIME' in request.data and out_time:
             update_fields.append("OUT_BY = :out_by_auto")
             params['out_by_auto'] = security_guard_identifier
-            if 'INOUT_STATUS' not in request.data: # Only set status if not explicitly provided
-                update_fields.append("INOUT_STATUS = 'O'")
+            inout_status = 'O'
+            update_fields.append("INOUT_STATUS = 'O'")
 
-        if 'IN_BY' not in request.data and in_time_data:
+        if 'IN_BY' not in request.data and 'IN_TIME' in request.data and in_time:
             update_fields.append("IN_BY = :in_by_auto")
             params['in_by_auto'] = security_guard_identifier
-            if 'INOUT_STATUS' not in request.data: # Only set status if not explicitly provided
-                update_fields.append("INOUT_STATUS = 'I'")
-
+            inout_status = 'I'
+            update_fields.append("INOUT_STATUS = 'I'")
 
         if not update_fields:
             return Response({"detail": "No updatable fields provided."}, status=status.HTTP_400_BAD_REQUEST)
@@ -238,7 +190,6 @@ class GatePassViewSet(viewsets.ModelViewSet):
         try:
             with connection.cursor() as cursor:
                 cursor.execute(sql, params)
-                # Fetch the updated instance for the response
                 updated_instance = GatePass.objects.get(pk=gatepass_no)
                 serializer = self.get_serializer(updated_instance)
                 return Response(serializer.data)
@@ -250,7 +201,6 @@ class GatePassViewSet(viewsets.ModelViewSet):
         return self.update(request, *args, **kwargs)
 
 
-
 @login_required
 def create_manual_gatepass_entry(request):
     if request.method == 'POST':
@@ -260,7 +210,7 @@ def create_manual_gatepass_entry(request):
             gatepass_type = form.cleaned_data['GATEPASS_TYPE']
 
             try:
-                # MARK_IN_TIME from hidden input (now YYYY-MM-DDTHH:MM:SS from JS)
+                # MARK_IN_TIME from hidden input (YYYY-MM-DDTHH:MM:SS from JS)
                 mark_in_time_str = request.POST.get('MARK_IN_TIME')
                 # MARK_OUT_TIME from hidden input (YYYY-MM-DDTHH:MM:SS from JS)
                 mark_out_time_str = request.POST.get('MARK_OUT_TIME')
@@ -279,13 +229,11 @@ def create_manual_gatepass_entry(request):
 
             except (ValueError, TypeError) as e:
                 messages.error(request, f"Error parsing time data: {e}. Please ensure correct time format.")
-                form = ManualGatePassForm(request.POST) # Pass POST data back to re-render form with errors
+                form = ManualGatePassForm(request.POST)  # Pass POST data back to re-render form with errors
                 return render(request, 'gatepass_app/create_manual_gatepass.html', {'form': form})
 
-
             current_date_aware = timezone.now().astimezone(ORACLE_SERVER_TIMEZONE)
-            current_date_naive = current_date_aware.date() # Get just the date part for GATEPASS_DATE
-
+            current_date_naive = current_date_aware.date()  # Get just the date part for GATEPASS_DATE
 
             with connection.cursor() as cursor:
                 # Find the highest sequence number for today's manual entries
@@ -342,28 +290,28 @@ def create_manual_gatepass_entry(request):
                         """,
                         {
                             'gatepass_no': new_gatepass_no,
-                            'gatepass_date': current_date_naive, # Gatepass date is today
+                            'gatepass_date': current_date_naive,  # Gatepass date is today
                             'paycode': paycode,
                             'name': emp_name,
                             'department': department,
                             'gatepass_type': gatepass_type,
-                            'remarks': 'Manual Entry: Without intimation leave taken', # Added more context
-                            'out_time': naive_mark_out_time_for_oracle + timedelta(hours=5, minutes=30), # Use parsed value from frontend
+                            'remarks': 'Manual Entry: Without intimation leave taken',  # Added more context
+                            'out_time': naive_mark_out_time_for_oracle,  # Use parsed value from frontend
                             'out_by': security_guard_identifier,
-                            'in_time': naive_mark_in_time_for_oracle + timedelta(hours=5, minutes=30), # Use parsed value from frontend
+                            'in_time': naive_mark_in_time_for_oracle,  # Use parsed value from frontend
                             'in_by': security_guard_identifier,
-                            'inout_status': 'I', # Marked as 'In' since both times are provided for a manual entry
-                            'final_status': 'A', # Assuming manually approved
-                            'request_time': mark_in_time_aware.strftime('%I:%M:%S %p'), # Use MARK_IN_TIME as REQUEST_TIME
-                            'auth': 'N', # N = Not required for approval, or set to 'Y' if manual entry bypasses auth.
-                                         # Given AUTH1_STATUS is 'B', 'N' for AUTH makes sense (No approval needed).
-                            'auth1_by': None, # No specific approver for manual bypass
-                            'auth1_status': 'B', # B = By-passed
-                            'auth1_date': None, # No approval date for bypass
-                            'auth1_remarks': 'Manual Entry', # Specific remark for bypass
-                            'emp_type': None, # Adjust if you have a specific employee type for manual entries
-                            'user_id': security_guard_identifier, # User who created this entry
-                            'bypass_reason': 'Marked by security - Manual', # More specific reason
+                            'inout_status': 'I',  # Marked as 'In' since both times are provided for a manual entry
+                            'final_status': 'A',  # Assuming manually approved
+                            'request_time': mark_in_time_aware.strftime('%I:%M:%S %p'),  # Use MARK_IN_TIME as REQUEST_TIME
+                            'auth': 'N',  # N = Not required for approval, or set to 'Y' if manual entry bypasses auth.
+                            # Given AUTH1_STATUS is 'B', 'N' for AUTH makes sense (No approval needed).
+                            'auth1_by': None,  # No specific approver for manual bypass
+                            'auth1_status': 'B',  # B = By-passed
+                            'auth1_date': None,  # No approval date for bypass
+                            'auth1_remarks': 'Manual Entry',  # Specific remark for bypass
+                            'emp_type': None,  # Adjust if you have a specific employee type for manual entries
+                            'user_id': security_guard_identifier,  # User who created this entry
+                            'bypass_reason': 'Marked by security - Manual',  # More specific reason
                         }
                     )
                     messages.success(request, f"Manual Gatepass {new_gatepass_no} created successfully.")
@@ -375,7 +323,6 @@ def create_manual_gatepass_entry(request):
     else:
         form = ManualGatePassForm()
     return render(request, 'gatepass_app/create_manual_gatepass.html', {'form': form})
-
 
 
 @login_required

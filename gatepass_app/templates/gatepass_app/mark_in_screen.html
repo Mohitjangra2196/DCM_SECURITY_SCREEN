@@ -6,7 +6,7 @@
 {% block content %}
 <h1 class="mb-4">Mark In Employees</h1>
 
-<div class="d-flex justify-content-between mb-3"> {# Use justify-content-between to space out items #}
+<div class="d-flex justify-content-between mb-3">
     <a class="btn btn-primary" href="{% url 'create_manual_gatepass_entry' %}">Create Manual Entry</a>
     <a class="btn btn-outline-danger" href="{% url 'mark_out_screen' %}">Go to Mark Out Screen</a>
 </div>
@@ -28,11 +28,10 @@
                 <td>{{ employee.NAME }}</td>
                 <td>{{ employee.DEPARTMENT }}</td>
                 <td>
+                    {# Display the datetime object directly, Django's date filter will format it #}
+                    {# The timezone conversion is now handled in views.py making it IST aware #}
                     {% if employee.OUT_TIME %}
-                        {# WRAP OUT_TIME WITH TIMEZONE TAG: Convert to Asia/Kolkata (IST) for display #}
-                        {% timezone "Asia/Kolkata" %}
-                            {{ employee.OUT_TIME|date:"Y-m-d H:i:s" }}
-                        {% endtimezone %}
+                        {{ employee.OUT_TIME|date:"Y-m-d H:i:s A" }} {# Added 'A' for AM/PM #}
                     {% else %}
                         N/A
                     {% endif %}
