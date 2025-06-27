@@ -25,7 +25,11 @@
         <tbody>
             {% for employee in employees %}
             <tr>
-                <td>{{ employee.NAME }}</td>
+                {% if employee.EMP_TYPE == 'S'%}
+                <td style="background-color: aquamarine;">{{ employee.NAME }}</td>
+                {% else %}
+                <td style="background-color: rgba(245, 168, 219, 0.623);">{{ employee.NAME }}</td>
+                {% endif %}
                 <td>{{ employee.DEPARTMENT }}</td>
                 <td>
                     {# Display the datetime object directly, Django's date filter will format it #}

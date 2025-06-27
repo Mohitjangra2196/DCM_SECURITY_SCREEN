@@ -3,6 +3,33 @@
 {% block title %}Create Manual Gatepass Entry{% endblock %}
 
 {% block content %}
+<style>
+    /* CSS for the loading animation */
+    .loading {
+        opacity: 0.7; /* Reduce opacity to indicate loading */
+        pointer-events: none; /* Disable clicks during loading */
+        cursor: not-allowed; /* Change cursor */
+        display: flex; /* Use flexbox for spinner and text alignment */
+        align-items: center;
+        justify-content: center;
+    }
+
+    .loading-spinner {
+        border: 4px solid rgba(255, 255, 255, 0.3); /* Light border for spinner */
+        border-top: 4px solid #fff; /* White top border for spinning effect */
+        border-radius: 50%; /* Make it circular */
+        width: 20px;
+        height: 20px;
+        animation: spin 1s linear infinite; /* Spin animation */
+        margin-left: 8px; /* Space between text and spinner */
+    }
+
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+</style>
+
 <div class="container mt-4">
     <h1 class="mb-4">Create Manual Gatepass Entry</h1>
 
@@ -76,6 +103,15 @@
         </div>
 
         <div class="row mb-3">
+            <div class="col-md-6">            
+                <div class="form-group">
+                    {{ form.MARK_OUT_TIME_DISPLAY.label_tag }}
+                    {{ form.MARK_OUT_TIME_DISPLAY }}
+                    {% if form.MARK_OUT_TIME_DISPLAY.errors %}
+                        <div class="text-danger">{{ form.MARK_OUT_TIME_DISPLAY.errors }}</div>
+                    {% endif %}
+                </div>            
+            </div> 
             <div class="col-md-6">
                 <div class="form-group">
                     {{ form.MARK_IN_TIME.label_tag }}
@@ -84,18 +120,8 @@
                         <div class="text-danger">{{ form.MARK_IN_TIME.errors }}</div>
                     {% endif %}
                 </div>
-            </div>
-            <div class="col-md-6">                
-                <div class="form-group">
-                    {{ form.MARK_OUT_TIME_DISPLAY.label_tag }}
-                    {{ form.MARK_OUT_TIME_DISPLAY }}
-                    {% if form.MARK_OUT_TIME_DISPLAY.errors %}
-                        <div class="text-danger">{{ form.MARK_OUT_TIME_DISPLAY.errors }}</div>
-                    {% endif %}
-                </div>                
             </div>            
         </div>
-
 
 
         <div class="row mt-4">
@@ -241,13 +267,20 @@
 
         // Add event listener to the new button to explicitly submit the form
         createEntryButton.addEventListener('click', function() {
+            // Apply loading animation
+            createEntryButton.classList.add('loading');
+            createEntryButton.innerHTML = `Processing... <span class="loading-spinner"></span>`;
+
             calculateMarkOutTime(); // Recalculate just before submission to ensure freshness
 
             const markInDateTime = parseCustomDateTime(markInTimeInput.value);
             const markOutDateTime = parseCustomDateTime(markOutTimeDisplayInput.value);
 
             if (!markInDateTime || !markOutDateTime) {
-                alert("Error: Mark In Time or Mark Out Time could not be parsed. Please check the dates.");
+                console.error("Error: Mark In Time or Mark Out Time could not be parsed. Please check the dates.");
+                // Remove loading animation if there's an error and don't submit
+                createEntryButton.classList.remove('loading');
+                createEntryButton.innerHTML = 'Submit'; // Restore button text
                 return; // Prevent form submission
             }
 

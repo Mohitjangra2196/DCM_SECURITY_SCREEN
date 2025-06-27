@@ -39,7 +39,7 @@ def home_screen(request):
 def mark_out_screen(request):
     employees_to_mark_out = []
     with connection.cursor() as cursor:
-        cursor.execute("SELECT GATEPASS_NO, (NAME||' ('||PAYCODE||')') NAME, DEPARTMENT, REMARKS, AUTH1_BY, AUTH1_DATE, REQUEST_TIME, GATEPASS_TYPE FROM GATEPASS WHERE FINAL_STATUS = 'A' AND OUT_TIME IS NULL AND EARLY_LATE <> 'L'")
+        cursor.execute("SELECT GATEPASS_NO, (NAME||' -'||PAYCODE||' -'||EMP_TYPE) NAME, (DEPARTMENT||' -'||UNIT_NAME ) DEPARTMENT, REMARKS, AUTH1_BY, AUTH1_DATE, REQUEST_TIME, GATEPASS_TYPE||NVL(LUNCH,'N') GATEPASS_TYPE ,EMP_TYPE FROM GATEPASS WHERE FINAL_STATUS = 'A' AND OUT_TIME IS NULL  AND EARLY_LATE <> 'L'")
         columns = [col[0] for col in cursor.description]
         raw_employees = cursor.fetchall()
 
@@ -49,15 +49,23 @@ def mark_out_screen(request):
         GatePass_type_code_raw = employee_dict.get('GATEPASS_TYPE')
 
         if auth1_by_code_raw is None :
-            if GatePass_type_code_raw == 'Official' :
+            if GatePass_type_code_raw == 'OfficialN' :
                 employee_dict['AUTH1_BY_DISPLAY'] = "ByPass - Official"
-            elif GatePass_type_code_raw == 'Personal' :
+            elif GatePass_type_code_raw == 'OfficialY' : 
+                employee_dict['AUTH1_BY_DISPLAY'] = "ByPass - Official + Lunch"   
+            elif GatePass_type_code_raw == 'PersonalN' :
                 employee_dict['AUTH1_BY_DISPLAY'] = "ByPass - Personal"
+            elif GatePass_type_code_raw == 'PersonalY' :
+                employee_dict['AUTH1_BY_DISPLAY'] = "ByPass - Personal + Lunch"
         else :
-            if GatePass_type_code_raw == 'Official':
+            if GatePass_type_code_raw == 'OfficialN':
                 employee_dict['AUTH1_BY_DISPLAY'] = "Approved - Official"
-            elif GatePass_type_code_raw == 'Personal':
+            elif GatePass_type_code_raw == 'OfficialY' : 
+                employee_dict['AUTH1_BY_DISPLAY'] = "Approved - Official + Lunch"     
+            elif GatePass_type_code_raw == 'PersonalN':
                 employee_dict['AUTH1_BY_DISPLAY'] = "Approved - Personal"
+            elif GatePass_type_code_raw == 'PersonalY' :
+                employee_dict['AUTH1_BY_DISPLAY'] = "Approved - Personal + Lunch"    
         employees_to_mark_out.append(employee_dict)
 
     return render(request, 'gatepass_app/mark_out_screen.html', {'employees': employees_to_mark_out})
@@ -91,7 +99,7 @@ def process_mark_out(request, gatepass_no):
 def mark_in_screen(request):
     employees_to_mark_in = []
     with connection.cursor() as cursor:
-        cursor.execute("SELECT GATEPASS_NO, (NAME||' ('||PAYCODE||')') NAME, DEPARTMENT, OUT_TIME, OUT_BY FROM GATEPASS WHERE INOUT_STATUS = 'O' AND EARLY_LATE <> 'E' ")
+        cursor.execute("SELECT GATEPASS_NO, (NAME||' -'||PAYCODE||' -'||EMP_TYPE) NAME, (DEPARTMENT||' -'||UNIT_NAME ) DEPARTMENT, OUT_TIME, OUT_BY ,EMP_TYPE FROM GATEPASS WHERE INOUT_STATUS = 'O' AND EARLY_LATE <> 'E' ")
         columns = [col[0] for col in cursor.description]
         raw_employees = cursor.fetchall()
 
@@ -253,9 +261,8 @@ def create_manual_gatepass_entry(request):
                 try:
                     cursor.execute(
                         """
-                        SELECT a.EMPNAME, b.DEPARTMENTNAME
-                        FROM savior9x.tblemployee a, SAVIOR9X.TBLDEPARTMENT b
-                        WHERE LTRIM(RTRIM(a.PAYCODE)) = :p_paycode AND a.DEPARTMENTCODE = b.DEPARTMENTCODE
+                        SELECT A.EMP_NAME, B.DEPARTMENTNAME ,A.EMP_TYPE  FROM EMP_MST@DB_APPS_TO_SVR A, TBLDEPARTMENT@DB_APPS_TO_SVR B
+                        WHERE LTRIM(RTRIM(A.PAYCODE)) = :P_PAYCODE AND A.DEPT_CODE = B.DEPARTMENTCODE
                         """,
                         {'p_paycode': paycode}
                     )
@@ -263,22 +270,25 @@ def create_manual_gatepass_entry(request):
                     if emp_details:
                         emp_name = emp_details[0]
                         department = emp_details[1]
+                        emp_type = emp_details[2]
                     else:
                         messages.warning(request, f"Employee with Pay Code {paycode} not found in master data. Proceeding without name/department.")
                         # Set default values if not found, so insertion doesn't fail
                         emp_name = "UNKNOWN"
                         department = "UNKNOWN"
+                        emp_type = "UNKNOWN"
                 except Exception as e:
                     messages.warning(request, f"Could not fetch employee details for Pay Code {paycode}: {e}. Proceeding with default values.")
                     emp_name = "DB_ERROR"
                     department = "DB_ERROR"
+                    emp_type = "DB_ERROR"
 
                 security_guard_identifier = request.user.username
 
                 try:
                     cursor.execute(
                         """
-                        INSERT INTO GATEPASS (
+                        INSERT INTO GATEPASS@DB_APPS_TO_SVR (
                             GATEPASS_NO, GATEPASS_DATE, PAYCODE, NAME, DEPARTMENT, GATEPASS_TYPE,
                             REMARKS, OUT_TIME, OUT_BY, IN_TIME, IN_BY, INOUT_STATUS, FINAL_STATUS,
                             REQUEST_TIME, AUTH, AUTH1_BY, AUTH1_STATUS, AUTH1_DATE, AUTH1_REMARKS,EMP_TYPE,USER_ID,BYPASS_REASON
@@ -295,7 +305,7 @@ def create_manual_gatepass_entry(request):
                             'name': emp_name,
                             'department': department,
                             'gatepass_type': gatepass_type,
-                            'remarks': 'Manual Entry: Without intimation leave taken',  # Added more context
+                            'remarks': 'Without intimation leave taken - Manual Entry',  # Added more context
                             'out_time': naive_mark_out_time_for_oracle,  # Use parsed value from frontend
                             'out_by': security_guard_identifier,
                             'in_time': naive_mark_in_time_for_oracle,  # Use parsed value from frontend
@@ -303,14 +313,14 @@ def create_manual_gatepass_entry(request):
                             'inout_status': 'I',  # Marked as 'In' since both times are provided for a manual entry
                             'final_status': 'A',  # Assuming manually approved
                             'request_time': mark_in_time_aware.strftime('%I:%M:%S %p'),  # Use MARK_IN_TIME as REQUEST_TIME
-                            'auth': 'N',  # N = Not required for approval, or set to 'Y' if manual entry bypasses auth.
+                            'auth': '1',  # N = Not required for approval, or set to 'Y' if manual entry bypasses auth.
                             # Given AUTH1_STATUS is 'B', 'N' for AUTH makes sense (No approval needed).
                             'auth1_by': None,  # No specific approver for manual bypass
                             'auth1_status': 'B',  # B = By-passed
                             'auth1_date': None,  # No approval date for bypass
-                            'auth1_remarks': 'Manual Entry',  # Specific remark for bypass
-                            'emp_type': None,  # Adjust if you have a specific employee type for manual entries
-                            'user_id': security_guard_identifier,  # User who created this entry
+                            'auth1_remarks': None,  # Specific remark for bypass
+                            'emp_type': emp_type,  
+                            'user_id': paycode,  # User who created this entry
                             'bypass_reason': 'Marked by security - Manual',  # More specific reason
                         }
                     )
