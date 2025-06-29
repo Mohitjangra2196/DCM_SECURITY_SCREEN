@@ -6,9 +6,109 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Gate Pass App{% endblock %}</title>
-    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    
+    {# Bootstrap CSS (now local) #}
+    <link href="{% static 'gatepass_app/vendor/bootstrap/css/bootstrap.min.css' %}" rel="stylesheet">
+    
     {# Your custom loading spinner CSS #}
     <link rel="stylesheet" href="{% static 'gatepass_app/css/loading_spinner.css' %}">
+    
+    {# Font Awesome CSS (from CDN, you might want to download this too if you need offline access) #}
+    <link rel="stylesheet" href="{% static 'gatepass_app/vendor/fontawesome/css/all.min.css' %}">
+    
+       <style>
+        :root {
+            --primary-blue: #007bff; /* Bootstrap primary */
+            --navbar-bg: #2c3e50; /* Darker blue-grey for navbar */
+            --navbar-text: #ecf0f1; /* Light grey for text */
+            --navbar-hover: #34495e; /* Slightly darker on hover */
+            --light-bg: #f8f9fa; /* Light background for overall page */
+            --dark-text: #343a40; /* Dark text for contrast */
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: var(--light-bg);
+            color: var(--dark-text);
+            line-height: 1.6;
+        }
+
+        /* Navbar Styling */
+        .navbar {
+            background-color: var(--navbar-bg) !important;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .navbar-brand {
+            color: var(--navbar-text) !important;
+            font-weight: 600;
+            font-size: 1.5rem;
+            margin-right: 20px; /* Space between brand and refresh button */
+        }
+        .navbar-nav .nav-link {
+            color: var(--navbar-text) !important;
+            transition: color 0.3s ease;
+            font-weight: 400;
+            margin-right: 15px; /* Spacing between nav items */
+        }
+        .navbar-nav .nav-link:hover {
+            color: var(--primary-blue) !important; /* Highlight on hover */
+        }
+        .navbar-text {
+            color: var(--navbar-text) !important;
+            font-weight: 300;
+            margin-right: 1.5rem; /* Space before logout button */
+        }
+        .navbar-toggler {
+            border-color: rgba(255,255,255,.1);
+        }
+        .navbar-toggler-icon {
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba%28255, 255, 255, 0.55%29' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
+        }
+
+        /* Refresh Button Styling */
+        #refreshPageButton {
+            background-color: var(--primary-blue);
+            border-color: var(--primary-blue);
+            color: white;
+            font-weight: 500;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+            display: flex; /* Use flexbox for icon and text alignment */
+            align-items: center;
+            padding: 8px 15px; /* Adjust padding */
+        }
+        #refreshPageButton i {
+            margin-right: 8px; /* Space between icon and text */
+        }
+        #refreshPageButton:hover {
+            background-color: #0056b3; /* Darker blue on hover */
+            border-color: #0056b3;
+            transform: translateY(-2px); /* Slight lift on hover */
+        }
+
+        /* Container for content */
+        .container {
+            padding-top: 30px;
+            padding-bottom: 50px;
+        }
+
+        /* Messages Styling */
+        .alert {
+            margin-top: 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+
+        /* Footer (optional, but good practice) */
+        footer {
+            background-color: var(--navbar-bg);
+            color: var(--navbar-text);
+            text-align: center;
+            padding: 20px 0;
+            margin-top: 50px;
+            box-shadow: 0 -2px 5px rgba(0,0,0,0.1);
+        }
+    </style>
+
     {% block extra_head %}{% endblock %}
 </head>
 <body>
@@ -65,11 +165,16 @@
         {% block content %}{% endblock %}
     </div>
 
-    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.4/dist/umd/popper.min.js"></script>
-    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    {# jQuery (now local) #}
+    <script src="{% static 'gatepass_app/vendor/bootstrap/js/jquery-3.5.1.slim.min.js' %}"></script>
+    {# Popper.js (now local) #}
+    <script src="{% static 'gatepass_app/vendor/bootstrap/js/popper.min.js' %}"></script>
+    {# Bootstrap JS (now local) #}
+    <script src="{% static 'gatepass_app/vendor/bootstrap/js/bootstrap.min.js' %}"></script>
+    
     {# Your custom button animation JS #}
     <script src="{% static 'gatepass_app/js/button_animations.js' %}"></script>
+    
     {% block extra_js %}{% endblock %}
 </body>
 </html>

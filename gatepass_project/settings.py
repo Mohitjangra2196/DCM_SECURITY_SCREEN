@@ -25,7 +25,7 @@ SECRET_KEY = 'django-insecure-v*5=(og$lb-77d3ifqzltl2f2ef^0^@1(%h1wvzm(wy3@e8#3&
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['192.168.1.160', 'localhost', '127.0.0.1']
+ALLOWED_HOSTS = ['192.168.1.8', 'localhost', '127.0.0.1']
 
 
 # Application definition
@@ -137,9 +137,9 @@ USE_TZ = True
 STATIC_URL = '/static/'
 
 # Define where Django will look for static files within your apps
-STATICFILES_DIRS = [
-    BASE_DIR / 'static', # This line is optional, for project-wide static files
-]
+# STATICFILES_DIRS = [
+#     BASE_DIR / 'static', # This line is optional, for project-wide static files
+# ]
 
 # Define the absolute path to the directory where collectstatic will gather all static files
 STATIC_ROOT = BASE_DIR / 'staticfiles'
