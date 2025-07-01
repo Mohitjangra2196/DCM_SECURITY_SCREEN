@@ -6,7 +6,8 @@
 <h1 class="mb-4">Mark Out Employees</h1>
 
 {# Added Mark In button for quick navigation within content #}
-<div class="d-flex justify-content-end mb-3"> {# Flexbox to push button to the right #}
+<div class="d-flex justify-content-between mb-3"> {# Flexbox to push button to the right #}
+    <a class="btn btn-danger" href="{% url 'create_manual_mark_out_entry' %}">Create Manual Entry</a>
     <a class="btn btn-outline-success" href="{% url 'mark_in_screen' %}">Go to Mark In Screen</a>
 </div>
 

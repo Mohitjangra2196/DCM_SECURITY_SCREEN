@@ -11,7 +11,8 @@ from django.contrib.auth import get_user_model
 from datetime import datetime, timedelta
 
 # Import the new form
-from .forms import ManualGatePassForm
+from .forms import ManualGatePassForm, ManualMarkOutForm # Import both forms
+
 
 # DRF Imports
 from rest_framework import viewsets, status
@@ -39,7 +40,13 @@ def home_screen(request):
 def mark_out_screen(request):
     employees_to_mark_out = []
     with connection.cursor() as cursor:
-        cursor.execute("SELECT GATEPASS_NO, (NAME||' -'||PAYCODE||' -'||EMP_TYPE) NAME, (DEPARTMENT||' -'||UNIT_NAME ) DEPARTMENT, REMARKS, AUTH1_BY, AUTH1_DATE, REQUEST_TIME, GATEPASS_TYPE||NVL(LUNCH,'N') GATEPASS_TYPE ,EMP_TYPE FROM GATEPASS WHERE FINAL_STATUS = 'A' AND OUT_TIME IS NULL  AND EARLY_LATE <> 'L'")
+        cursor.execute(
+            """ 
+            SELECT GATEPASS_NO, (NAME||' -'||PAYCODE||' -'||EMP_TYPE) NAME, (DEPARTMENT||' -'||UNIT_NAME ) DEPARTMENT, REMARKS, AUTH1_BY, AUTH1_DATE, 
+            REQUEST_TIME, GATEPASS_TYPE||NVL(LUNCH,'N') GATEPASS_TYPE ,EMP_TYPE 
+            FROM GATEPASS WHERE FINAL_STATUS = 'A'  AND EARLY_LATE <> ( 'L' ) AND INOUT_STATUS IS NULL ORDER BY GATEPASS_NO DESC
+            """
+        )
         columns = [col[0] for col in cursor.description]
         raw_employees = cursor.fetchall()
 
@@ -99,7 +106,7 @@ def process_mark_out(request, gatepass_no):
 def mark_in_screen(request):
     employees_to_mark_in = []
     with connection.cursor() as cursor:
-        cursor.execute("SELECT GATEPASS_NO, (NAME||' -'||PAYCODE||' -'||EMP_TYPE) NAME, (DEPARTMENT||' -'||UNIT_NAME ) DEPARTMENT, OUT_TIME, OUT_BY ,EMP_TYPE FROM GATEPASS WHERE INOUT_STATUS = 'O' AND EARLY_LATE <> 'E' ")
+        cursor.execute("SELECT GATEPASS_NO, (NAME||' -'||PAYCODE||' -'||EMP_TYPE) NAME, (DEPARTMENT||' -'||UNIT_NAME ) DEPARTMENT, OUT_TIME, OUT_BY ,EMP_TYPE FROM GATEPASS WHERE INOUT_STATUS = 'O' AND EARLY_LATE <> 'E' ORDER BY OUT_TIME DESC")
         columns = [col[0] for col in cursor.description]
         raw_employees = cursor.fetchall()
 
@@ -261,8 +268,9 @@ def create_manual_gatepass_entry(request):
                 try:
                     cursor.execute(
                         """
-                        SELECT A.EMP_NAME, B.DEPARTMENTNAME ,A.EMP_TYPE  FROM EMP_MST@DB_APPS_TO_SVR A, TBLDEPARTMENT@DB_APPS_TO_SVR B
-                        WHERE LTRIM(RTRIM(A.PAYCODE)) = :P_PAYCODE AND A.DEPT_CODE = B.DEPARTMENTCODE
+                        SELECT A.EMP_NAME, B.DEPARTMENTNAME ,A.EMP_TYPE,C.SHORT_NAME FROM EMP_MST@DB_APPS_TO_SVR A, TBLDEPARTMENT@DB_APPS_TO_SVR B,
+                        UNIT_MST@DB_APPS_TO_SVR C WHERE LTRIM(RTRIM(A.PAYCODE)) = :P_PAYCODE AND A.DEPT_CODE = B.DEPARTMENTCODE
+                        AND A.UNIT_CODE = C.UNIT_CODE
                         """,
                         {'p_paycode': paycode}
                     )
@@ -271,17 +279,20 @@ def create_manual_gatepass_entry(request):
                         emp_name = emp_details[0]
                         department = emp_details[1]
                         emp_type = emp_details[2]
+                        unit_name = emp_details[3]
                     else:
                         messages.warning(request, f"Employee with Pay Code {paycode} not found in master data. Proceeding without name/department.")
                         # Set default values if not found, so insertion doesn't fail
                         emp_name = "UNKNOWN"
                         department = "UNKNOWN"
                         emp_type = "UNKNOWN"
+                        unit_name = "UNKNOWN"
                 except Exception as e:
                     messages.warning(request, f"Could not fetch employee details for Pay Code {paycode}: {e}. Proceeding with default values.")
                     emp_name = "DB_ERROR"
                     department = "DB_ERROR"
                     emp_type = "DB_ERROR"
+                    unit_name = "DB_ERROR"
 
                 security_guard_identifier = request.user.username
 
@@ -291,11 +302,13 @@ def create_manual_gatepass_entry(request):
                         INSERT INTO GATEPASS@DB_APPS_TO_SVR (
                             GATEPASS_NO, GATEPASS_DATE, PAYCODE, NAME, DEPARTMENT, GATEPASS_TYPE,
                             REMARKS, OUT_TIME, OUT_BY, IN_TIME, IN_BY, INOUT_STATUS, FINAL_STATUS,
-                            REQUEST_TIME, AUTH, AUTH1_BY, AUTH1_STATUS, AUTH1_DATE, AUTH1_REMARKS,EMP_TYPE,USER_ID,BYPASS_REASON
+                            REQUEST_TIME, AUTH, AUTH1_BY, AUTH1_STATUS, AUTH1_DATE, AUTH1_REMARKS,
+                            EMP_TYPE,USER_ID,BYPASS_REASON,EL_MIN,UNIT_NAME
                         ) VALUES (
                             :gatepass_no, :gatepass_date, :paycode, :name, :department, :gatepass_type,
                             :remarks, :out_time, :out_by, :in_time, :in_by, :inout_status, :final_status,
-                            :request_time, :auth, :auth1_by, :auth1_status, :auth1_date, :auth1_remarks,:emp_type,:user_id,:bypass_reason
+                            :request_time, :auth, :auth1_by, :auth1_status, :auth1_date, :auth1_remarks,
+                            :emp_type,:user_id,:bypass_reason,:el_min,:unit_name
                         )
                         """,
                         {
@@ -322,6 +335,8 @@ def create_manual_gatepass_entry(request):
                             'emp_type': emp_type,  
                             'user_id': paycode,  # User who created this entry
                             'bypass_reason': 'Marked by security - Manual',  # More specific reason
+                            'el_min' : form.cleaned_data['mark_out_duration'],
+                            'unit_name' : unit_name,
                         }
                     )
                     messages.success(request, f"Manual Gatepass {new_gatepass_no} created successfully.")
@@ -333,6 +348,119 @@ def create_manual_gatepass_entry(request):
     else:
         form = ManualGatePassForm()
     return render(request, 'gatepass_app/create_manual_gatepass.html', {'form': form})
+
+
+@login_required
+def create_manual_mark_out_entry(request):
+    if request.method == 'POST':
+        form = ManualMarkOutForm(request.POST)
+        if form.is_valid():
+            paycode = form.cleaned_data['PAYCODE']
+            gatepass_type = form.cleaned_data['GATEPASS_TYPE']
+
+            try:
+                # MARK_OUT_TIME from hidden input (YYYY-MM-DDTHH:MM:SS from JS)
+                mark_out_time_str = request.POST.get('MARK_OUT_TIME')
+                mark_out_time_naive = datetime.fromisoformat(mark_out_time_str)
+                mark_out_time_aware = ORACLE_SERVER_TIMEZONE.localize(mark_out_time_naive)
+                naive_mark_out_time_for_oracle = mark_out_time_aware.replace(tzinfo=None)
+
+            except (ValueError, TypeError) as e:
+                messages.error(request, f"Error parsing time data: {e}. Please ensure correct time format.")
+                form = ManualMarkOutForm(request.POST) # Pass POST data back to re-render form with errors
+                return render(request, 'gatepass_app/create_manual_mark_out.html', {'form': form})
+
+            current_date_aware = timezone.now().astimezone(ORACLE_SERVER_TIMEZONE)
+            current_date_naive = current_date_aware.date() # Get just the date part for GATEPASS_DATE
+
+            with connection.cursor() as cursor:
+                # Find the highest sequence number for today's manual entries
+                cursor.execute(
+                    f"SELECT MAX(GATEPASS_NO) FROM GATEPASS"
+                )
+                last_seq = cursor.fetchone()[0]
+                if last_seq:
+                    next_seq = int(last_seq) + 1
+                else:
+                    next_seq = 1
+                new_gatepass_no = f"{next_seq}"
+
+                # Fetch employee name and department from EMP_MST based on PAYCODE
+                emp_name = None
+                department = None
+                try:
+                    cursor.execute(
+                        """
+                        SELECT A.EMP_NAME, B.DEPARTMENTNAME ,A.EMP_TYPE FROM EMP_MST@DB_APPS_TO_SVR A, TBLDEPARTMENT@DB_APPS_TO_SVR B
+                        WHERE LTRIM(RTRIM(A.PAYCODE)) = :P_PAYCODE AND A.DEPT_CODE = B.DEPARTMENTCODE
+                        """,
+                        {'p_paycode': paycode}
+                    )
+                    emp_details = cursor.fetchone()
+                    if emp_details:
+                        emp_name = emp_details[0]
+                        department = emp_details[1]
+                        emp_type = emp_details[2]
+                    else:
+                        messages.warning(request, f"Employee with Pay Code {paycode} not found in master data. Proceeding without name/department.")
+                        emp_name = "UNKNOWN"
+                        department = "UNKNOWN"
+                        emp_type = "UNKNOWN"
+                except Exception as e:
+                    messages.warning(request, f"Could not fetch employee details for Pay Code {paycode}: {e}. Proceeding with default values.")
+                    emp_name = "DB_ERROR"
+                    department = "DB_ERROR"
+                    emp_type = "DB_ERROR"
+
+                security_guard_identifier = request.user.username
+
+                try:
+                    cursor.execute(
+                        """
+                        INSERT INTO GATEPASS@DB_APPS_TO_SVR (
+                            GATEPASS_NO, GATEPASS_DATE, PAYCODE, NAME, DEPARTMENT, GATEPASS_TYPE,
+                            REMARKS, OUT_TIME, OUT_BY, IN_TIME, IN_BY, INOUT_STATUS, FINAL_STATUS,
+                            REQUEST_TIME, AUTH, AUTH1_BY, AUTH1_STATUS, AUTH1_DATE, AUTH1_REMARKS,EMP_TYPE,USER_ID,BYPASS_REASON
+                        ) VALUES (
+                            :gatepass_no, :gatepass_date, :paycode, :name, :department, :gatepass_type,
+                            :remarks, :out_time, :out_by, :in_time, :in_by, :inout_status, :final_status,
+                            :request_time, :auth, :auth1_by, :auth1_status, :auth1_date, :auth1_remarks,:emp_type,:user_id,:bypass_reason
+                        )
+                        """,
+                        {
+                            'gatepass_no': new_gatepass_no,
+                            'gatepass_date': current_date_naive,
+                            'paycode': paycode,
+                            'name': emp_name,
+                            'department': department,
+                            'gatepass_type': gatepass_type,
+                            'remarks': 'Manual Out Entry by Security',
+                            'out_time': naive_mark_out_time_for_oracle, # This is the current time
+                            'out_by': security_guard_identifier,
+                            'in_time': None, # No IN_TIME for a fresh OUT entry
+                            'in_by': None,
+                            'inout_status': 'O', # 'O' for Out
+                            'final_status': 'A',
+                            'request_time': mark_out_time_aware.strftime('%I:%M:%S %p'), # Use MARK_OUT_TIME as REQUEST_TIME
+                            'auth': '1',
+                            'auth1_by': None,
+                            'auth1_status': 'B', # B = By-passed
+                            'auth1_date': None,
+                            'auth1_remarks': None,
+                            'emp_type': emp_type,
+                            'user_id': paycode,
+                            'bypass_reason': 'Marked by security - Manual Out',
+                        }
+                    )
+                    messages.success(request, f"Manual Mark Out Gatepass {new_gatepass_no} created successfully.")
+                    return redirect('mark_out_screen') # Redirect to the mark out screen
+                except Exception as e:
+                    messages.error(request, f"Error creating manual mark out gatepass: {e}")
+        else:
+            messages.error(request, "Please correct the errors in the form.")
+    else:
+        form = ManualMarkOutForm()
+    return render(request, 'gatepass_app/create_manual_mark_out.html', {'form': form})
 
 
 @login_required

@@ -18,7 +18,8 @@ urlpatterns = [
     path('mark_out/', views.mark_out_screen, name='mark_out_screen'),
     path('mark_in/', views.mark_in_screen, name='mark_in_screen'),
     path('mark_in/create_manual/', views.create_manual_gatepass_entry, name='create_manual_gatepass_entry'),
-    path('get_employee_details/', views.get_employee_details, name='get_employee_details'), #just added
+    path('mark_out/create_manual_out/', views.create_manual_mark_out_entry, name='create_manual_mark_out_entry'), # New URL for mark-out
+    path('get_employee_details/', views.get_employee_details, name='get_employee_details'), 
       
     re_path(r'mark_out/(?P<gatepass_no>.+)/$', views.process_mark_out, name='process_mark_out'),
     re_path(r'mark_in/(?P<gatepass_no>.+)/$', views.process_mark_in, name='process_mark_in'),

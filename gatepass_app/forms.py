@@ -80,19 +80,6 @@ class ManualGatePassForm(forms.Form):
 
         # Calculate and format initial MARK_OUT_TIME_DISPLAY
         try:
-            # Convert the displayed MARK_IN_TIME back to a datetime object for calculation
-            # We'll use a helper function to parse this specific format
-            mark_in_dt_str = self.fields['MARK_IN_TIME'].initial
-            
-            # Since the form now initializes with M/D/YYYY H:MM:SS AM/PM,
-            # we need a custom parser if we want to use Python's datetime.
-            # However, it's safer to just set the initial based on raw datetime
-            # and let JS handle the display for consistency with subsequent updates.
-
-            # Let's keep the initial calculation logic here, but use the raw datetime objects
-            # before converting to display string.
-            # This ensures Python's datetime handling is consistent.
-            
             initial_duration_minutes = int(self.fields['mark_out_duration'].initial)
             # Mark Out Time = Mark In Time - Duration (Reversed Logic)
             initial_mark_out_time = current_time_aware_ist - timedelta(minutes=initial_duration_minutes)
@@ -105,4 +92,53 @@ class ManualGatePassForm(forms.Form):
 
         for name, field in self.fields.items():
             if name not in ['GATEPASS_TYPE', 'mark_out_duration']:
+                field.widget.attrs.update({'class': 'form-control'})
+
+
+class ManualMarkOutForm(forms.Form):
+    PAYCODE = forms.CharField(
+        max_length=60,
+        label="Pay Code",
+        widget=forms.TextInput(attrs={'class': 'form-control'})
+    )
+    EMPLOYEE_NAME = forms.CharField(
+        max_length=100,
+        label="Employee Name",
+        required=False,
+        widget=forms.TextInput(attrs={'class': 'form-control', 'readonly': 'readonly'})
+    )
+    DEPARTMENT_NAME = forms.CharField(
+        max_length=100,
+        label="Department",
+        required=False,
+        widget=forms.TextInput(attrs={'class': 'form-control', 'readonly': 'readonly'})
+    )
+
+    GATEPASS_TYPE_CHOICES = [
+        ('Official', 'Official'),
+        ('Personal', 'Personal'),
+    ]
+    GATEPASS_TYPE = forms.ChoiceField(
+        choices=GATEPASS_TYPE_CHOICES,
+        label="Gatepass Type",
+        widget=forms.Select(attrs={'class': 'form-select'})
+    )
+    
+    MARK_OUT_TIME_DISPLAY = forms.CharField(
+        label="Mark Out Time",
+        required=False,
+        widget=forms.TextInput(attrs={'class': 'form-control', 'readonly': 'readonly'})
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Use a consistent timezone for all time operations
+        ist_timezone = pytz.timezone('Asia/Kolkata')
+        current_time_aware_ist = timezone.now().astimezone(ist_timezone)
+
+        # Mark Out Time is simply the current time
+        self.fields['MARK_OUT_TIME_DISPLAY'].initial = current_time_aware_ist.strftime('%#m/%#d/%Y %#I:%M:%S %p')
+
+        for name, field in self.fields.items():
+            if name not in ['GATEPASS_TYPE']:
                 field.widget.attrs.update({'class': 'form-control'})
