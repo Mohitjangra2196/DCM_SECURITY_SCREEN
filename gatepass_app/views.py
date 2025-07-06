@@ -42,7 +42,7 @@ def mark_out_screen(request):
     with connection.cursor() as cursor:
         cursor.execute(
             """ 
-            SELECT GATEPASS_NO, (NAME||' -'||PAYCODE||' -'||EMP_TYPE) NAME, (DEPARTMENT||' -'||UNIT_NAME ) DEPARTMENT, REMARKS, AUTH1_BY, AUTH1_DATE, 
+             SELECT GATEPASS_NO, (NAME||' -'||PAYCODE||' -'||EMP_TYPE) NAME, (DEPARTMENT||' ('||UNIT_NAME||') '||' '||  TO_CHAR(GATEPASS_DATE ,'DD/MON/YYYY') ) DEPARTMENT, REMARKS, AUTH1_BY, AUTH1_DATE, 
             REQUEST_TIME, GATEPASS_TYPE||NVL(LUNCH,'N') GATEPASS_TYPE ,EMP_TYPE 
             FROM GATEPASS WHERE FINAL_STATUS = 'A'  AND EARLY_LATE <> ( 'L' ) AND INOUT_STATUS IS NULL ORDER BY GATEPASS_NO DESC
             """
@@ -96,6 +96,7 @@ def process_mark_out(request, gatepass_no):
                     """,
                     {'out_time': naive_time_for_oracle, 'out_by': security_guard_identifier, 'gatepass_no': gatepass_no}
                 )
+                cursor.execute('commit')
             messages.success(request, f"Employee {gatepass_no} marked out successfully.")
         except Exception as e:
             messages.error(request, f"Error marking out employee {gatepass_no}: {e}")
@@ -139,6 +140,7 @@ def process_mark_in(request, gatepass_no):
                     """,
                     {'in_time': naive_time_for_oracle, 'in_by': security_guard_identifier, 'gatepass_no': gatepass_no}
                 )
+                cursor.execute('commit')
             messages.success(request, f"Employee {gatepass_no} marked in successfully.")
         except Exception as e:
             messages.error(request, f"Error marking in employee {gatepass_no}: {e}")
@@ -253,14 +255,10 @@ def create_manual_gatepass_entry(request):
             with connection.cursor() as cursor:
                 # Find the highest sequence number for today's manual entries
                 cursor.execute(
-                    f"SELECT MAX(GATEPASS_NO) FROM GATEPASS"
+                    f"SELECT FN_GATEPASS_NO FROM DUAL"
                 )
-                last_seq = cursor.fetchone()[0]
-                if last_seq:
-                    next_seq = int(last_seq) + 1
-                else:
-                    next_seq = 1
-                new_gatepass_no = f"{next_seq}"
+                
+                new_gatepass_no = cursor.fetchone()[0]
 
                 # Fetch employee name and department from EMP_MST based on PAYCODE
                 emp_name = None
@@ -376,14 +374,11 @@ def create_manual_mark_out_entry(request):
             with connection.cursor() as cursor:
                 # Find the highest sequence number for today's manual entries
                 cursor.execute(
-                    f"SELECT MAX(GATEPASS_NO) FROM GATEPASS"
+                    f"SELECT FN_GATEPASS_NO FROM DUAL"
                 )
-                last_seq = cursor.fetchone()[0]
-                if last_seq:
-                    next_seq = int(last_seq) + 1
-                else:
-                    next_seq = 1
-                new_gatepass_no = f"{next_seq}"
+                
+                new_gatepass_no = cursor.fetchone()[0]
+
 
                 # Fetch employee name and department from EMP_MST based on PAYCODE
                 emp_name = None

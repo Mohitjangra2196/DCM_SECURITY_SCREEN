@@ -2,4 +2,5 @@ cd ..
 .\myenv_3.10\Scripts\activate
 
 cd .\DCM_SECURITY_SCREEN\
- python .\manage.py runserver
+ python .\manage.py runserver 192.168.1.8:1001
+
