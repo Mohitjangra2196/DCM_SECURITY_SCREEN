@@ -1,0 +1,114 @@
+Summary of the Workflow:
+
+----------------------------------------------------Test PC:-------------------------------------------------
+
+git clone (first time)
+git checkout -b develop
+---------------Make changes------------
+git add .
+git commit -m "..."
+				if need then this 
+					git remote add origin https://github.com/Mohitjangra2196/DCM_SECURITY_SCREEN.git
+				end if;
+git push -u origin develop (repeat these steps for all test changes)
+
+
+-------Once tested and verified:-----------------
+				if need then this 
+					git fetch origin
+				end if;
+										
+git checkout main
+git pull origin main
+git merge develop
+----(Resolve conflicts if any)-------
+git push origin main
+
+---------------------------------------------------Main Running Server:-----------------------------------
+git clone (first time)
+git checkout main
+When new stable code is available:
+git pull origin main
+
+
+
+
+No, you **do not** always have to use `git checkout -b develop` before starting new work.
+
+Let's clarify the workflow:
+
+  * `git checkout -b develop` is used to **create a new branch** called `develop` and then **switch to it**. You only need to do this **once** for the `develop` branch.
+
+**Here's the correct flow for subsequent work after you've already created the `develop` branch and potentially merged it:**
+
+**Scenario 1: You are starting completely new work after merging `develop` to `main`.**
+
+1.  **Switch back to your `develop` branch (if you're not already there):**
+
+    ```bash
+    git checkout develop
+    ```
+
+2.  **Pull the latest changes from `main` into `develop` (highly recommended\!):**
+    After merging `develop` into `main`, `main` now has your latest code. It's crucial to update your `develop` branch with these changes from `main` so that your `develop` branch is always "up-to-date" with the `main` branch's current state. This avoids re-introducing old code or creating unnecessary merge conflicts later.
+
+    ```bash
+    git pull origin main
+    ```
+
+    This command effectively brings all the changes that went into `main` (which originated from your `develop` branch and any other changes that might have been on `main`) back into your `develop` branch.
+
+3.  **Make your new changes:** Work on your new features or bug fixes.
+
+4.  **Add and Commit:**
+
+    ```bash
+    git add .
+    git commit -m "Implement new feature Y"
+    ```
+
+5.  **Push to `develop`:**
+
+    ```bash
+    git push origin develop
+    ```
+
+**Scenario 2: You want to work on a completely new, isolated feature that is distinct from the ongoing `develop` work.**
+
+In this scenario, instead of directly working on `develop`, you might create feature branches *from* `develop`. This is a more advanced but often very clean workflow, especially if you have multiple features in progress or want to isolate specific changes.
+
+1.  **Ensure you are on `develop` and it's up-to-date:**
+    ```bash
+    git checkout develop
+    git pull origin main # Or git pull origin develop if you just want latest develop
+    ```
+2.  **Create a new feature branch from `develop`:**
+    ```bash
+    git checkout -b feature/new-dashboard
+    ```
+3.  **Make your changes for this specific feature.**
+4.  **Add and Commit:**
+    ```bash
+    git add .
+    git commit -m "Implement new dashboard feature"
+    ```
+5.  **Push your feature branch:**
+    ```bash
+    git push -u origin feature/new-dashboard
+    ```
+6.  **When this feature is complete, merge it back into `develop`:**
+    ```bash
+    git checkout develop
+    git pull origin develop # Make sure develop is up-to-date
+    git merge feature/new-dashboard
+    git push origin develop
+    ```
+    Then, when `develop` is stable, you'd merge `develop` into `main` as before.
+
+**Key takeaway:**
+
+  * You create a branch (`git checkout -b`) only when you need a **new** branch.
+  * Once a branch exists, you simply `git checkout <branch-name>` to switch to it.
+  * Always `git pull` from the remote to get the latest changes before starting work or merging, to avoid conflicts and ensure you're working on the most recent codebase.
+
+For your current setup, sticking with one `develop` branch is perfectly fine and simplifies things. So, after a merge to `main`, just `git checkout develop` and `git pull origin main` (to sync `develop` with `main`) before continuing your next set of test changes.

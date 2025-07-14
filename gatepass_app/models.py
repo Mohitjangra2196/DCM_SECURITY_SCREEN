@@ -1,11 +1,5 @@
 # gatepass_app/models.py
 from django.db import models
-# from django.contrib.auth.models import AbstractUser # AbstractUser is no longer needed
-
-# The SecurityGuard model definition is removed.
-# If you need to store unique_code, grade, desig for other purposes,
-# consider creating a separate 'Profile' model linked to Django's default User.
-
 
 class GatePass(models.Model):
     """
@@ -20,17 +14,28 @@ class GatePass(models.Model):
     GATEPASS_TYPE = models.CharField(max_length=150, null=True, blank=True)
     REMARKS = models.CharField(max_length=765, null=True, blank=True)
     REQUEST_TIME = models.CharField(max_length=60, null=True, blank=True)
-    AUTH = models.CharField(max_length=3, null=True, blank=True)
+    AUTH = models.CharField(max_length=1, null=True, blank=True) # Updated max_length to 1
     AUTH1_BY = models.CharField(max_length=24, null=True, blank=True)
-    AUTH1_STATUS = models.CharField(max_length=3, null=True, blank=True)
+    AUTH1_STATUS = models.CharField(max_length=1, null=True, blank=True) # Updated max_length to 1
     AUTH1_DATE = models.DateField(null=True, blank=True)
     AUTH1_REMARKS = models.CharField(max_length=150, null=True, blank=True)
-    FINAL_STATUS = models.CharField(max_length=3, null=True, blank=True) # A = Approved
-    OUT_TIME = models.DateTimeField(null=True, blank=True)
+    FINAL_STATUS = models.CharField(max_length=1, null=True, blank=True) # Updated max_length to 1 (A = Approved)
+    OUT_TIME = models.DateTimeField(null=True, blank=True) # Reverted to DateTimeField based on sample data
     OUT_BY = models.CharField(max_length=60, null=True, blank=True) # Represents who marked out
-    IN_TIME = models.DateTimeField(null=True, blank=True)
+    IN_TIME = models.DateTimeField(null=True, blank=True) # Reverted to DateTimeField based on sample data
     IN_BY = models.CharField(max_length=60, null=True, blank=True) # Represents who marked in
-    INOUT_STATUS = models.CharField(max_length=3, null=True, blank=True) # O = Out, I = In
+    INOUT_STATUS = models.CharField(max_length=1, null=True, blank=True) # Updated max_length to 1 (O = Out, I = In)
+    EARLY_LATE = models.CharField(max_length=1, null=True, blank=True)
+
+    # New columns added and type adjusted based on Oracle schema and sample data
+    IN_OUT_TIME = models.CharField(max_length=30, null=True, blank=True)
+    BYPASS_REASON = models.CharField(max_length=1500, null=True, blank=True)
+    EMP_TYPE = models.CharField(max_length=1, null=True, blank=True)
+    USER_ID = models.CharField(max_length=60, null=True, blank=True)
+    LUNCH = models.CharField(max_length=1, null=True, blank=True)
+    UNIT_NAME = models.CharField(max_length=8, null=True, blank=True)
+    EL_MIN = models.IntegerField(null=True, blank=True) # NUMBER in Oracle typically maps to IntegerField in Django
+    SYS_DATE = models.DateTimeField(null=True, blank=True) # Changed to DateTimeField based on sample data
 
     class Meta:
         managed = False  # Django will not manage this table/view's schema

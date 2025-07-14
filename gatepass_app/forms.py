@@ -2,6 +2,7 @@
 from django import forms
 from django.utils import timezone
 import pytz
+from django.conf import settings 
 from datetime import timedelta, datetime
 
 class ManualGatePassForm(forms.Form):
@@ -71,20 +72,15 @@ class ManualGatePassForm(forms.Form):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Use a consistent timezone for all time operations
-        ist_timezone = pytz.timezone('Asia/Kolkata')
-        current_time_aware_ist = timezone.now().astimezone(ist_timezone)
+        current_time = timezone.now().astimezone()
+        #print(f"from forms : timezone.now().astimezone() {timezone.now().astimezone()}")
 
-        # Format MARK_IN_TIME for display (M/D/YYYY H:MM:SS AM/PM)
-        self.fields['MARK_IN_TIME'].initial = current_time_aware_ist.strftime('%#m/%#d/%Y %#I:%M:%S %p')
+        self.fields['MARK_IN_TIME'].initial = current_time.strftime('%#m/%#d/%Y %#I:%M:%S %p')
 
-        # Calculate and format initial MARK_OUT_TIME_DISPLAY
+        
         try:
-            initial_duration_minutes = int(self.fields['mark_out_duration'].initial)
-            # Mark Out Time = Mark In Time - Duration (Reversed Logic)
-            initial_mark_out_time = current_time_aware_ist - timedelta(minutes=initial_duration_minutes)
-            
-            # Format MARK_OUT_TIME_DISPLAY for display
+            duration = int(self.fields['mark_out_duration'].initial)
+            initial_mark_out_time = current_time - timedelta(minutes=duration)
             self.fields['MARK_OUT_TIME_DISPLAY'].initial = initial_mark_out_time.strftime('%#m/%#d/%Y %#I:%M:%S %p')
 
         except (ValueError, TypeError):
@@ -132,12 +128,10 @@ class ManualMarkOutForm(forms.Form):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Use a consistent timezone for all time operations
-        ist_timezone = pytz.timezone('Asia/Kolkata')
-        current_time_aware_ist = timezone.now().astimezone(ist_timezone)
+        
+        current_time = timezone.now().astimezone()
 
-        # Mark Out Time is simply the current time
-        self.fields['MARK_OUT_TIME_DISPLAY'].initial = current_time_aware_ist.strftime('%#m/%#d/%Y %#I:%M:%S %p')
+        self.fields['MARK_OUT_TIME_DISPLAY'].initial = current_time.strftime('%#m/%#d/%Y %#I:%M:%S %p')
 
         for name, field in self.fields.items():
             if name not in ['GATEPASS_TYPE']:

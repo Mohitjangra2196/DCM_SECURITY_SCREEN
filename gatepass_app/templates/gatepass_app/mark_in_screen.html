@@ -26,25 +26,24 @@
             {% for employee in employees %}
             <tr>
                 {% if employee.EMP_TYPE == 'S'%}
-                <td style="background-color: aquamarine;">{{ employee.NAME }}</td>
+                <td style="background-color: aquamarine;">{{ employee.NAME_DISPLAY }}</td>
                 {% else %}
-                <td style="background-color: rgba(245, 168, 219, 0.623);">{{ employee.NAME }}</td>
+                <td style="background-color: rgba(245, 168, 219, 0.623);">{{ employee.NAME_DISPLAY }}</td>
                 {% endif %}
-                <td>{{ employee.DEPARTMENT }}</td>
+                <td>{{ employee.DEPARTMENT_DISPLAY }}</td>
+                <td>{{ employee.OUT_TIME}}</td>
                 <td>
-                    {# Display the datetime object directly, Django's date filter will format it #}
-                    {# The timezone conversion is now handled in views.py making it IST aware #}
-                    {% if employee.OUT_TIME %}
-                        {{ employee.OUT_TIME|date:"Y-m-d H:i:s A" }} {# Added 'A' for AM/PM #}
+                    {% if employee.IS_CROSS_DATE == 'YES' %}
+                    <form action="{% url 'markin_cross' gatepass_no=employee.GATEPASS_NO %}" method="post">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-success btn-sm mark-button">Cancel</button>
+                    </form>
                     {% else %}
-                        N/A
-                    {% endif %}
-                </td>
-                <td>
                     <form action="{% url 'process_mark_in' gatepass_no=employee.GATEPASS_NO %}" method="post">
                         {% csrf_token %}
                         <button type="submit" class="btn btn-success btn-sm mark-button">Mark In</button>
                     </form>
+                    {% endif %}
                 </td>
             </tr>
             {% endfor %}

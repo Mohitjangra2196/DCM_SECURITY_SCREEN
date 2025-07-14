@@ -17,28 +17,35 @@
     <table class="table table-striped table-hover">
         <thead class="thead-dark">
             <tr>
-                <th>Name</th>
-                <th>Department</th>
-                <th>Status - Type </th> {# Keep this header text #}
+                <th>Name  Employee Type</th>
+                <th>Department (unit)  date </th>
+                <th>Status Type Lunch </th> {# Keep this header text #}
                 <th>Action</th>
             </tr>
         </thead>
         <tbody>
-            {% for employee in employees %}
+            {% for I in employees %}
             <tr>
-                {% if employee.EMP_TYPE == 'S'%}
-                <td style="background-color: aquamarine;">{{ employee.NAME }}</td>
+                {% if I.EMP_TYPE == 'S'%}
+                <td style="background-color: aquamarine;">{{ I.NAME_DISPLAY }}</td>
                 {% else %}
-                <td style="background-color: rgba(245, 168, 219, 0.623);">{{ employee.NAME }}</td>
+                <td style="background-color: rgba(245, 168, 219, 0.623);">{{ I.NAME_DISPLAY }}</td>
                 {% endif %}
                 
-                <td>{{ employee.DEPARTMENT }}</td>
-                <td>{{ employee.AUTH1_BY_DISPLAY }}</td> 
+                <td>{{ I.DEPARTMENT_DISPLAY }}</td>
+                <td>{{ I.STATUS_TYPE }}</td> 
                 <td>
-                    <form action="{% url 'process_mark_out' gatepass_no=employee.GATEPASS_NO %}" method="post">
+                    {% if I.IS_CROSS_DATE == 'YES'%}
+                    <form action="{% url 'markout_cross' gatepass_no=I.GATEPASS_NO %}" method="post">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-danger btn-sm mark-button">Cancel</button>
+                    </form>
+                    {% else %}
+                    <form action="{% url 'process_mark_out' gatepass_no=I.GATEPASS_NO %}" method="post">
                         {% csrf_token %}
                         <button type="submit" class="btn btn-danger btn-sm mark-button">Mark Out</button>
                     </form>
+                    {% endif %}
                 </td>
             </tr>
             {% endfor %}
